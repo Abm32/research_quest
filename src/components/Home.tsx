@@ -2,15 +2,18 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
-  Search, 
   Users, 
-  BookOpen, 
-  Award,
   ArrowRight,
   Sparkles,
   Brain,
   Rocket,
-  Target
+  Target,
+  MessageCircle,
+  Award,
+  Globe,
+  Twitter,
+  Linkedin,
+  Github
 } from 'lucide-react';
 
 export function Home() {
@@ -41,12 +44,42 @@ export function Home() {
     },
   ];
 
+  const testimonials = [
+    {
+      name: 'John Doe',
+      role: 'Researcher at Stanford',
+      comment: 'This platform has transformed the way I collaborate with peers. Highly recommended!',
+      avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
+    },
+    {
+      name: 'Jane Smith',
+      role: 'PhD Candidate at MIT',
+      comment: 'The gamified learning aspect keeps me motivated. Love the community here!',
+      avatar: 'https://randomuser.me/api/portraits/women/2.jpg'
+    },
+    {
+      name: 'Alice Johnson',
+      role: 'Data Scientist at Google',
+      comment: 'A fantastic resource for sharing and discovering research materials.',
+      avatar: 'https://randomuser.me/api/portraits/women/3.jpg'
+    }
+  ];
+
+  const stats = [
+    { value: '10,000+', label: 'Active Researchers' },
+    { value: '500+', label: 'Research Topics' },
+    { value: '1M+', label: 'Resources Shared' },
+    { value: '100+', label: 'Communities' }
+  ];
+
+  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2
+        staggerChildren: 0.2,
+        delayChildren: 0.3,
       }
     }
   };
@@ -58,14 +91,21 @@ export function Home() {
       opacity: 1,
       transition: {
         type: "spring",
-        stiffness: 100
+        stiffness: 100,
+        damping: 10
       }
     }
   };
 
   return (
-    <div className="space-y-16 px-4 py-8">
-      <section className="text-center space-y-8 relative">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-20 px-6 py-12"
+    >
+      {/* Hero Section */}
+      <section className="text-center space-y-8 relative overflow-hidden">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -134,42 +174,99 @@ export function Home() {
         </motion.div>
       </section>
 
+      {/* Features Section */}
       <motion.section
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
       >
         {features.map((feature, index) => (
           <motion.div
             key={feature.title}
             variants={itemVariants}
-            whileHover={{ y: -5, transition: { duration: 0.2 } }}
-            className="relative p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
+            whileHover={{ y: -10, scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="relative p-8 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 group"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-5 rounded-xl`} />
+            <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 rounded-xl transition-opacity`} />
             <div className={`p-3 bg-gradient-to-br ${feature.color} rounded-xl inline-block`}>
               <feature.icon className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-semibold mt-4">{feature.title}</h3>
+            <h3 className="text-xl font-semibold mt-6">{feature.title}</h3>
             <p className="text-gray-600 mt-2">{feature.description}</p>
           </motion.div>
         ))}
       </motion.section>
 
+      {/* Stats Section */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-sm"
+        transition={{ delay: 0.2 }}
+        className="bg-gradient-to-r from-indigo-50 to-purple-50 py-16 rounded-2xl"
       >
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold text-gray-900">Ready to Start?</h2>
-          <p className="text-gray-600">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {stats.map((stat, index) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 + index * 0.2 }}
+              className="space-y-2"
+            >
+              <h3 className="text-4xl font-bold text-indigo-600">{stat.value}</h3>
+              <p className="text-gray-600">{stat.label}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Testimonials Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="max-w-6xl mx-auto space-y-12"
+      >
+        <h2 className="text-3xl font-bold text-center text-gray-900">What Our Users Say</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          {testimonials.map((testimonial, index) => (
+            <motion.div
+              key={testimonial.name}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 + index * 0.2 }}
+              className="p-6 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300"
+            >
+              <div className="flex items-center space-x-4">
+                <img src={testimonial.avatar} alt={testimonial.name} className="w-12 h-12 rounded-full" />
+                <div>
+                  <h3 className="text-lg font-semibold">{testimonial.name}</h3>
+                  <p className="text-gray-500">{testimonial.role}</p>
+                </div>
+              </div>
+              <p className="mt-4 text-gray-600">{testimonial.comment}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Call-to-Action Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="max-w-4xl mx-auto bg-gradient-to-r from-indigo-600 to-purple-600 p-8 rounded-2xl shadow-lg"
+      >
+        <div className="text-center space-y-6">
+          <h2 className="text-3xl font-bold text-white">Ready to Start?</h2>
+          <p className="text-indigo-100">
             Begin your research journey today and join our growing community of researchers.
           </p>
           <Link
             to="/journey"
-            className="inline-block px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+            className="inline-block px-8 py-4 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all duration-300"
           >
             <span className="flex items-center space-x-2">
               <span>Get Started</span>
@@ -178,6 +275,37 @@ export function Home() {
           </Link>
         </div>
       </motion.section>
-    </div>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div>
+            <h3 className="text-xl font-bold">Research Hub</h3>
+            <p className="mt-4 text-gray-400">Empowering researchers worldwide.</p>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">Quick Links</h3>
+            <ul className="mt-4 space-y-2">
+              <li><Link to="/journey" className="text-gray-400 hover:text-white">Start Your Journey</Link></li>
+              <li><Link to="/communities" className="text-gray-400 hover:text-white">Explore Communities</Link></li>
+              <li><Link to="/resources" className="text-gray-400 hover:text-white">Resources</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">Contact Us</h3>
+            <p className="mt-4 text-gray-400">Email: support@researchhub.com</p>
+            <p className="text-gray-400">Phone: +1 (123) 456-7890</p>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">Follow Us</h3>
+            <div className="mt-4 flex space-x-4">
+              <a href="#" className="text-gray-400 hover:text-white"><Twitter className="w-6 h-6" /></a>
+              <a href="#" className="text-gray-400 hover:text-white"><Linkedin className="w-6 h-6" /></a>
+              <a href="#" className="text-gray-400 hover:text-white"><Github className="w-6 h-6" /></a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </motion.div>
   );
 }
