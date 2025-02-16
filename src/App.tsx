@@ -1,18 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
+import { Footer } from './components/Footer';
 import { Home } from './components/Home';
-import { Profile } from './components/Profile.tsx';
-import { ResearchJourney } from './components/ResearchJourney.tsx';
-import { Communities } from './components/Communities.tsx';
-import { Resources } from './components/Resources.tsx';
+import { Profile } from './components/Profile';
+import { ResearchJourney } from './components/ResearchJourney';
+import { Communities } from './components/Communities';
+import { Resources } from './components/Resources';
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navbar />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8 flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
@@ -21,6 +22,7 @@ function App() {
             <Route path="/resources" element={<Resources />} />
           </Routes>
         </main>
+        <Footer />
       </div>
     </Router>
   );
