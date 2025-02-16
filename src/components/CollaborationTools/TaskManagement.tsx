@@ -1,4 +1,50 @@
-initial={{ opacity: 0, y: 20 }}
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Plus, User, Calendar } from 'lucide-react';
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: 'todo' | 'in_progress' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  assignedTo: string;
+  dueDate: string;
+}
+
+const getPriorityIcon = (priority: Task['priority']) => {
+  const colors = {
+    low: 'text-green-500',
+    medium: 'text-yellow-500', 
+    high: 'text-red-500'
+  };
+
+  return (
+    <div className={`flex items-center ${colors[priority]}`}>
+      <span className="w-2 h-2 rounded-full bg-current" />
+      <span className="ml-2 text-sm capitalize">{priority}</span>
+    </div>
+  );
+};
+
+export default function TaskManagement() {
+  const tasks: Task[] = [
+    {
+      id: '1',
+      title: 'Research Project Plan',
+      description: 'Create initial research project plan and timeline',
+      status: 'todo',
+      priority: 'high',
+      assignedTo: 'John Doe',
+      dueDate: '2024-02-01'
+    },
+    // Add more sample tasks as needed
+  ];
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
       >
