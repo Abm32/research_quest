@@ -14,7 +14,7 @@ import { DesignPhase } from './InteractiveResearchJourney/DesignPhase';
 import { DevelopmentPhase } from './InteractiveResearchJourney/DevelopmentPhase';
 import { EvaluationPhase } from './InteractiveResearchJourney/EvaluationPhase';
 
-export function ResearchJourney() {
+export default function ResearchJourney() {
   const [activePhase, setActivePhase] = React.useState<string | null>(null);
 
   const phases = [

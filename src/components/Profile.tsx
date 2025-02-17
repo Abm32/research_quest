@@ -10,7 +10,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-export function Profile() {
+export default function Profile() {
   const user = useStore((state) => state.user);
 
   // Placeholder user data (remove when real authentication is implemented)

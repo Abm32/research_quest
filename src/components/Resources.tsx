@@ -9,7 +9,7 @@ import {
   Share2
 } from 'lucide-react';
 
-export function Resources() {
+export default function Resources() {
   const resources = [
     {
       id: '1',

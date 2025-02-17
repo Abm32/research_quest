@@ -1,30 +1,79 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
-import { Home } from './components/Home';
-import { Profile } from './components/Profile';
-import { ResearchJourney } from './components/ResearchJourney';
-import { Communities } from './components/Communities';
-import { Resources } from './components/Resources';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './components/auth/AuthContext';
+import Navbar from './components/Navbar';
+import Home from './components/Home';
+import Communities from './components/Communities';
+import Resources from './components/Resources';
+import Profile from './components/Profile';
+import ResearchJourney from './components/ResearchJourney';
+import Footer from './components/Footer';
+import { Login } from './components/auth/Login';
+import { Signup } from './components/auth/Signup';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+}
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Navbar />
-        <main className="container mx-auto px-4 py-8 flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/journey" element={<ResearchJourney />} />
-            <Route path="/communities" element={<Communities />} />
-            <Route path="/resources" element={<Resources />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <main>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route
+                path="/communities"
+                element={
+                  <PrivateRoute>
+                    <Communities />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/resources"
+                element={
+                  <PrivateRoute>
+                    <Resources />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <Profile />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/journey"
+                element={
+                  <PrivateRoute>
+                    <ResearchJourney />
+                  </PrivateRoute>
+                }
+              />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

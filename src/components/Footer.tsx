@@ -1,9 +1,8 @@
-// Footer.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Twitter, Linkedin, Github } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+export default function Footer() {
   return (
     <div className="w-full bg-gray-900">
       <footer className="text-white py-12 mt-15">
@@ -45,4 +44,4 @@ export const Footer: React.FC = () => {
       </footer>
     </div>
   );
-};
+}

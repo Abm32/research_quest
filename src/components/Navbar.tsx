@@ -1,66 +1,91 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useStore } from '../store/useStore';
-import { 
-  Home, 
-  User, 
-  Map, 
-  Users, 
-  BookOpen, 
-  LogIn 
-} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Bell, User, LogOut } from 'lucide-react';
+import { useAuth } from './auth/AuthContext';
+import { auth } from '../config/firebase';
 
-export function Navbar() {
-  const location = useLocation();
-  const user = useStore((state) => state.user);
+export default function Navbar() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/journey', icon: Map, label: 'Research Journey' },
-    { path: '/communities', icon: Users, label: 'Communities' },
-    { path: '/resources', icon: BookOpen, label: 'Resources' },
-  ];
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
-    <nav className="bg-white shadow-lg">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <BookOpen className="w-8 h-8 text-indigo-600" />
-            <span className="font-bold text-xl">ResearchHub</span>
-          </Link>
-
-          <div className="hidden md:flex space-x-8">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium
-                  ${location.pathname === item.path
-                    ? 'text-indigo-600 bg-indigo-50'
-                    : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50'
-                  }`}
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-              </Link>
-            ))}
+    <nav className="bg-white shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-2xl font-bold text-indigo-600">ResearchQuest</span>
+            </Link>
+            {user && (
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                <Link to="/communities" className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md">
+                  Communities
+                </Link>
+                <Link to="/resources" className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md">
+                  Resources
+                </Link>
+                <Link to="/journey" className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md">
+                  Research Journey
+                </Link>
+              </div>
+            )}
           </div>
-
-          <div className="flex items-center space-x-4">
+          
+          <div className="flex items-center">
             {user ? (
-              <Link
-                to="/profile"
-                className="flex items-center space-x-2 text-gray-700 hover:text-indigo-600"
-              >
-                <User className="w-5 h-5" />
-                <span className="font-medium">{user.name}</span>
-              </Link>
+              <>
+                <div className="flex-shrink-0">
+                  <button className="p-2 rounded-full text-gray-500 hover:text-indigo-600">
+                    <Search className="h-6 w-6" />
+                  </button>
+                  <button className="p-2 rounded-full text-gray-500 hover:text-indigo-600">
+                    <Bell className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="ml-3 relative flex items-center space-x-4">
+                  <Link to="/profile" className="flex items-center space-x-2">
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      {user.photoURL ? (
+                        <img className="h-8 w-8 rounded-full" src={user.photoURL} alt="" />
+                      ) : (
+                        <User className="h-5 w-5 text-gray-500" />
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{user.displayName}</span>
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="p-2 rounded-full text-gray-500 hover:text-indigo-600"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
+                </div>
+              </>
             ) : (
-              <button className="flex items-center space-x-2 px-4 py-2 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50">
-                <LogIn className="w-4 h-4" />
-                <span>Sign In</span>
-              </button>
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/login"
+                  className="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/signup"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                >
+                  Sign up
+                </Link>
+              </div>
             )}
           </div>
         </div>

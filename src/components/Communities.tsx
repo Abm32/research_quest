@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useCommunitySearch, type Platform } from '../hooks/useCommunitySearch';
 
-export function Communities() {
+export default function Communities() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedPlatform, setSelectedPlatform] = React.useState<Platform | ''>('');
   const [selectedTopic, setSelectedTopic] = React.useState('');
