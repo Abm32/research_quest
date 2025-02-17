@@ -2,18 +2,12 @@
     "version": 2,
     "builds": [
       {
-        "src": "src/server/index.ts",
-        "use": "@vercel/node",
-        "config": {
-          "maxDuration": 10
-        }
+        "src": "vite.config.ts",
+        "use": "@vercel/static-build"
       },
       {
-        "src": "package.json",
-        "use": "@vercel/static-build",
-        "config": {
-          "distDir": "dist"  // Adjust according to your Vite output directory
-        }
+        "src": "src/server/index.ts",
+        "use": "@vercel/node"
       }
     ],
     "routes": [
@@ -23,7 +17,7 @@
       },
       {
         "src": "/(.*)",
-        "dest": "/dist/index.html"  // Adjust if your Vite output differs
+        "dest": "/dist/index.html"
       }
     ]
   }
