@@ -1,5 +1,12 @@
-// slack.ts
-const SLACK_API_BASE = 'http://localhost:5000/api/v1/slack';
+import { createClient } from '@supabase/supabase-js';
+
+const SLACK_API_ENDPOINT = 'https://slack.com/api';
+const BOT_TOKEN = import.meta.env.VITE_SLACK_BOT_TOKEN;
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export interface SlackCommunity {
   id: string;
@@ -18,36 +25,64 @@ export async function searchSlackCommunities(query: string): Promise<SlackCommun
   }
 
   try {
-    const response = await fetch(`${SLACK_API_BASE}/search?query=${encodeURIComponent(query)}`, {
+    const response = await fetch(`${SLACK_API_ENDPOINT}/conversations.list`, {
       headers: {
-        'Accept': 'application/json',
-      }
+        'Authorization': `Bearer ${BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
     });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
-    }
-    
+
     const data = await response.json();
     
-    if (!data.channels || !Array.isArray(data.channels)) {
-      return [];
+    if (!data.ok) {
+      throw new Error(data.error || 'Slack API error');
     }
 
-    return data.channels
-      .filter(channel => channel && typeof channel === 'object' && 'id' in channel)
-      .map((channel: any) => ({
-        id: channel.id || '',
-        name: channel.name || 'Unnamed Channel',
-        description: channel.purpose?.value || channel.topic?.value || `A Slack channel for ${channel.name}`,
-        memberCount: channel.num_members || 0,
-        isPrivate: Boolean(channel.is_private),
-        iconUrl: channel.icons?.image_original,
-        platform: 'slack' as const
-      }));
+    // Filter channels based on query
+    const filteredChannels = data.channels.filter((channel: any) =>
+      channel.name.toLowerCase().includes(query.toLowerCase()) ||
+      (channel.purpose?.value || '').toLowerCase().includes(query.toLowerCase()) ||
+      (channel.topic?.value || '').toLowerCase().includes(query.toLowerCase())
+    );
+
+    return filteredChannels.map((channel: any) => ({
+      id: channel.id,
+      name: channel.name,
+      description: channel.purpose?.value || channel.topic?.value || `A Slack channel for ${channel.name}`,
+      memberCount: channel.num_members || 0,
+      isPrivate: Boolean(channel.is_private),
+      iconUrl: channel.icons?.image_original,
+      platform: 'slack' as const
+    }));
   } catch (error) {
     console.error('Error searching Slack communities:', error);
-    throw error;
+    return [];
+  }
+}
+
+export async function joinSlackCommunity(communityId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${SLACK_API_ENDPOINT}/conversations.invite`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: communityId,
+        users: [] // Add user IDs here
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!data.ok) {
+      throw new Error(data.error || 'Failed to join channel');
+    }
+
+    return data.channel?.id || null;
+  } catch (error) {
+    console.error('Error joining Slack community:', error);
+    return null;
   }
 }

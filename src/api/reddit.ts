@@ -5,13 +5,10 @@ const CLIENT_ID = import.meta.env.VITE_REDDIT_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_REDDIT_CLIENT_SECRET;
 const REFRESH_TOKEN = import.meta.env.VITE_REDDIT_REFRESH_TOKEN;
 
-// Only create the client if the environment variables are available
-const supabase = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  ? createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY
-    )
-  : null;
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export interface RedditCommunity {
   id: string;
@@ -26,21 +23,26 @@ export interface RedditCommunity {
 }
 
 async function getAccessToken(): Promise<string> {
-  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: `grant_type=refresh_token&refresh_token=${REFRESH_TOKEN}`,
-  });
+  try {
+    const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `grant_type=refresh_token&refresh_token=${REFRESH_TOKEN}`,
+    });
 
-  if (!response.ok) {
-    throw new Error('Failed to get Reddit access token');
+    if (!response.ok) {
+      throw new Error('Failed to get Reddit access token');
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error('Error getting Reddit access token:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.access_token;
 }
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
@@ -63,6 +65,10 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 }
 
 export async function searchRedditCommunities(query: string): Promise<RedditCommunity[]> {
+  if (!query || query.length < 2) {
+    return [];
+  }
+
   try {
     const response = await fetchWithAuth(`/subreddits/search?q=${encodeURIComponent(query)}&limit=25`);
     
@@ -71,8 +77,8 @@ export async function searchRedditCommunities(query: string): Promise<RedditComm
       return {
         id: subreddit.name,
         name: subreddit.display_name_prefixed,
-        description: subreddit.public_description || subreddit.description,
-        memberCount: subreddit.subscribers,
+        description: subreddit.public_description || subreddit.description || '',
+        memberCount: subreddit.subscribers || 0,
         isNSFW: subreddit.over18,
         iconUrl: subreddit.icon_img || subreddit.community_icon,
         bannerUrl: subreddit.banner_img,
@@ -88,21 +94,16 @@ export async function searchRedditCommunities(query: string): Promise<RedditComm
 
 export async function joinRedditCommunity(communityId: string): Promise<boolean> {
   try {
-    if (!supabase) {
-      console.error('Supabase client not initialized');
-      return false;
-    }
-
-    const { error } = await supabase
-      .from('reddit_memberships')
-      .insert([{ community_id: communityId, user_id: 'current_user_id' }]);
-
-    if (error) throw error;
-
-    // Subscribe to the subreddit
     await fetchWithAuth(`/api/subscribe?sr=${communityId}`, {
       method: 'POST'
     });
+
+    // Store the subscription in Supabase
+    const { error } = await supabase
+      .from('reddit_subscriptions')
+      .insert([{ community_id: communityId }]);
+
+    if (error) throw error;
 
     return true;
   } catch (error) {

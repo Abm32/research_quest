@@ -1,14 +1,12 @@
-// discord.ts
 import { createClient } from '@supabase/supabase-js';
 
-const DISCORD_API_BASE = 'http://localhost:5000/api/v1/discord';
+const DISCORD_API_ENDPOINT = 'https://discord.com/api/v10';
+const BOT_TOKEN = import.meta.env.VITE_DISCORD_BOT_TOKEN;
 
-const supabase = import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  ? createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY
-    )
-  : null;
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export interface DiscordCommunity {
   id: string;
@@ -27,39 +25,91 @@ export async function searchDiscordCommunities(query: string): Promise<DiscordCo
   }
 
   try {
-    const response = await fetch(`${DISCORD_API_BASE}/search?query=${encodeURIComponent(query)}`, {
+    // First get the guilds where the bot is a member
+    const guildsResponse = await fetch(`${DISCORD_API_ENDPOINT}/users/@me/guilds`, {
       headers: {
-        'Accept': 'application/json',
-      }
+        'Authorization': `Bot ${BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
     });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.guilds || !Array.isArray(data.guilds)) {
-      return [];
+
+    if (!guildsResponse.ok) {
+      throw new Error(`Discord API error: ${guildsResponse.statusText}`);
     }
 
-    return data.guilds
-      .filter(guild => guild && typeof guild === 'object' && 'id' in guild)
-      .map((guild: any) => ({
-        id: guild.id,
-        name: guild.name || 'Unnamed Server',
-        description: guild.description || `A Discord community for ${guild.name}`,
-        memberCount: guild.approximate_member_count || 0,
-        isVerified: Boolean(guild.verified),
-        iconUrl: guild.icon 
-          ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` 
-          : undefined,
-        inviteCode: guild.vanity_url_code,
-        platform: 'discord' as const
-      }));
+    const guilds = await guildsResponse.json();
+
+    // Filter guilds based on search query
+    const filteredGuilds = guilds.filter((guild: any) => 
+      guild.name.toLowerCase().includes(query.toLowerCase())
+    );
+
+    // Get detailed information for each filtered guild
+    const detailedGuilds = await Promise.all(
+      filteredGuilds.map(async (guild: any) => {
+        try {
+          const guildResponse = await fetch(`${DISCORD_API_ENDPOINT}/guilds/${guild.id}`, {
+            headers: {
+              'Authorization': `Bot ${BOT_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!guildResponse.ok) {
+            return null;
+          }
+
+          const guildDetails = await guildResponse.json();
+          
+          return {
+            id: guild.id,
+            name: guild.name,
+            description: guildDetails.description || `A Discord community for ${guild.name}`,
+            memberCount: guildDetails.approximate_member_count || 0,
+            isVerified: Boolean(guild.verified),
+            iconUrl: guild.icon 
+              ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` 
+              : undefined,
+            inviteCode: guild.vanity_url_code,
+            platform: 'discord' as const
+          };
+        } catch (error) {
+          console.error(`Error fetching details for guild ${guild.id}:`, error);
+          return null;
+        }
+      })
+    );
+
+    return detailedGuilds.filter((guild): guild is DiscordCommunity => guild !== null);
   } catch (error) {
     console.error('Error searching Discord communities:', error);
-    throw error;
+    return [];
+  }
+}
+
+export async function joinDiscordCommunity(communityId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${DISCORD_API_ENDPOINT}/guilds/${communityId}/invites`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        max_age: 86400, // 24 hours
+        max_uses: 1,
+        unique: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create invite');
+    }
+
+    const invite = await response.json();
+    return `https://discord.gg/${invite.code}`;
+  } catch (error) {
+    console.error('Error creating Discord invite:', error);
+    return null;
   }
 }

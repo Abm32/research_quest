@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Search,
@@ -10,44 +10,187 @@ import {
   TrendingUp,
   Star,
   Hash,
-  Loader2
+  Loader2,
+  Plus,
+  AlertCircle
 } from 'lucide-react';
-import { useCommunitySearch, type Platform } from '../hooks/useCommunitySearch';
+import { collection, addDoc, getDocs, query, orderBy, Timestamp, where } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from './auth/AuthContext';
+import { searchDiscordCommunities, type DiscordCommunity } from '../api/discord';
+import { searchSlackCommunities, type SlackCommunity } from '../api/slack';
+import { searchRedditCommunities, type RedditCommunity } from '../api/reddit';
+
+type Platform = 'discord' | 'slack' | 'reddit' | 'custom';
+
+interface Community {
+  id: string;
+  name: string;
+  description: string;
+  topics: string[];
+  memberCount: number;
+  createdBy?: string;
+  createdAt?: Timestamp;
+  platform: Platform;
+  iconUrl?: string;
+  url?: string;
+  isVerified?: boolean;
+}
 
 export default function Communities() {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedPlatform, setSelectedPlatform] = React.useState<Platform | ''>('');
-  const [selectedTopic, setSelectedTopic] = React.useState('');
-  const [sortBy, setSortBy] = React.useState('popular');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState<Platform | ''>('');
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [sortBy, setSortBy] = useState('popular');
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCommunity, setNewCommunity] = useState({
+    name: '',
+    description: '',
+    topics: [] as string[],
+    newTopic: ''
+  });
 
-  const platforms = React.useMemo(() => 
-    selectedPlatform ? [selectedPlatform] : ['discord', 'slack', 'reddit'] as Platform[],
-    [selectedPlatform]
-  );
+  const { user } = useAuth();
 
-  const { communities, loading, error } = useCommunitySearch(searchQuery, platforms);
+  const fetchCustomCommunities = async () => {
+    try {
+      const q = query(
+        collection(db, 'communities'),
+        where('platform', '==', 'custom'),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        platform: 'custom' as const
+      })) as Community[];
+    } catch (err) {
+      console.error('Error fetching custom communities:', err);
+      return [];
+    }
+  };
 
-  const allTopics = React.useMemo(() => 
-    Array.from(new Set(communities.flatMap(c => 
-      'topics' in c ? c.topics : []
-    ))),
-    [communities]
-  );
+  const fetchAllCommunities = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const customCommunities = await fetchCustomCommunities();
+      let platformCommunities: Community[] = [];
 
-  const sortedCommunities = React.useMemo(() => {
-    return [...communities].sort((a, b) => {
-      switch (sortBy) {
-        case 'popular':
-          return (b.memberCount || 0) - (a.memberCount || 0);
-        case 'trending':
-          return ('trending' in b ? (b.trending ? 1 : 0) : 0) - ('trending' in a ? (a.trending ? 1 : 0) : 0);
-        default:
-          return 0;
+      if (searchQuery) {
+        try {
+          const [discordResults, slackResults, redditResults] = await Promise.all([
+            searchDiscordCommunities(searchQuery).catch(() => []),
+            searchSlackCommunities(searchQuery).catch(() => []),
+            searchRedditCommunities(searchQuery).catch(() => [])
+          ]);
+
+          platformCommunities = [
+            ...discordResults.map(c => ({
+              id: c.id,
+              name: c.name,
+              description: c.description,
+              memberCount: c.memberCount,
+              platform: 'discord' as const,
+              topics: [],
+              iconUrl: c.iconUrl,
+              isVerified: c.isVerified
+            })),
+            ...slackResults.map(c => ({
+              id: c.id,
+              name: c.name,
+              description: c.description,
+              memberCount: c.memberCount,
+              platform: 'slack' as const,
+              topics: [],
+              iconUrl: c.iconUrl
+            })),
+            ...redditResults.map(c => ({
+              id: c.id,
+              name: c.name,
+              description: c.description,
+              memberCount: c.memberCount,
+              platform: 'reddit' as const,
+              topics: [],
+              iconUrl: c.iconUrl,
+              url: c.url
+            }))
+          ];
+        } catch (err) {
+          console.error('Error fetching platform communities:', err);
+        }
       }
-    });
-  }, [communities, sortBy]);
 
-  const getPlatformColor = (platform: string) => {
+      setCommunities([...customCommunities, ...platformCommunities]);
+    } catch (err) {
+      setError('Failed to fetch communities');
+      console.error('Error fetching all communities:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllCommunities();
+  }, [searchQuery]);
+
+  const handleCreateCommunity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      await addDoc(collection(db, 'communities'), {
+        name: newCommunity.name,
+        description: newCommunity.description,
+        topics: newCommunity.topics,
+        memberCount: 1,
+        createdBy: user.uid,
+        createdAt: Timestamp.now(),
+        platform: 'custom'
+      });
+
+      setShowCreateModal(false);
+      setNewCommunity({ name: '', description: '', topics: [], newTopic: '' });
+      fetchAllCommunities();
+    } catch (err) {
+      setError('Failed to create community');
+      console.error('Error creating community:', err);
+    }
+  };
+
+  const handleAddTopic = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && newCommunity.newTopic.trim()) {
+      setNewCommunity({
+        ...newCommunity,
+        topics: [...newCommunity.topics, newCommunity.newTopic.trim()],
+        newTopic: ''
+      });
+    }
+  };
+
+  const filteredCommunities = communities.filter(community => {
+    const matchesPlatform = !selectedPlatform || community.platform === selectedPlatform;
+    const matchesTopic = !selectedTopic || community.topics.includes(selectedTopic);
+    const matchesSearch = !searchQuery || 
+      community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      community.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesPlatform && matchesTopic && matchesSearch;
+  });
+
+  const sortedCommunities = [...filteredCommunities].sort((a, b) => {
+    if (sortBy === 'popular') {
+      return b.memberCount - a.memberCount;
+    }
+    return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+  });
+
+  const allTopics = Array.from(new Set(communities.flatMap(c => c.topics)));
+
+  const getPlatformColor = (platform: Platform) => {
     switch (platform) {
       case 'discord':
         return 'from-indigo-500 to-purple-500';
@@ -56,7 +199,7 @@ export default function Communities() {
       case 'reddit':
         return 'from-orange-500 to-red-500';
       default:
-        return 'from-gray-500 to-gray-600';
+        return 'from-blue-500 to-cyan-500';
     }
   };
 
@@ -65,15 +208,24 @@ export default function Communities() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
+        className="flex justify-between items-center mb-8"
       >
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Research Communities</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
-          Connect with researchers across different platforms. Join discussions,
-          share insights, and collaborate on projects.
-        </p>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Research Communities</h1>
+          <p className="text-gray-600">Connect and collaborate with researchers worldwide</p>
+        </div>
+        {user && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Create Community</span>
+          </button>
+        )}
       </motion.div>
 
+      {/* Search and Filter Section */}
       <div className="bg-white rounded-xl shadow-sm mb-8">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col space-y-4">
@@ -87,81 +239,51 @@ export default function Communities() {
                   placeholder="Search communities..."
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <Sparkles className="w-5 h-5" />
-                  </button>
-                )}
               </div>
-              <div className="flex flex-col sm:flex-row gap-4 sm:w-auto w-full">
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value as Platform | '')}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">All Platforms</option>
+                <option value="discord">Discord</option>
+                <option value="slack">Slack</option>
+                <option value="reddit">Reddit</option>
+                <option value="custom">Custom</option>
+              </select>
+              {allTopics.length > 0 && (
                 <select
-                  value={selectedPlatform}
-                  onChange={(e) => setSelectedPlatform(e.target.value as Platform | '')}
-                  className="w-full sm:w-40 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">All Platforms</option>
-                  <option value="discord">Discord</option>
-                  <option value="slack">Slack</option>
-                  <option value="reddit">Reddit</option>
+                  <option value="">All Topics</option>
+                  {allTopics.map(topic => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
                 </select>
-                {allTopics.length > 0 && (
-                  <select
-                    value={selectedTopic}
-                    onChange={(e) => setSelectedTopic(e.target.value)}
-                    className="w-full sm:w-48 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                  >
-                    <option value="">All Topics</option>
-                    {allTopics.map(topic => (
-                      <option key={topic} value={topic}>{topic}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Filter className="w-4 h-4" />
-                <span>Sort by:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 'popular', label: 'Most Popular', icon: Users },
-                  { value: 'trending', label: 'Trending', icon: TrendingUp }
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setSortBy(option.value)}
-                    className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm transition-colors
-                      ${sortBy === option.value
-                        ? 'bg-indigo-100 text-indigo-600'
-                        : 'text-gray-600 hover:bg-gray-100'}`}
-                  >
-                    <option.icon className="w-4 h-4" />
-                    <span>{option.label}</span>
-                  </button>
-                ))}
-              </div>
+              )}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="popular">Most Popular</option>
+                <option value="recent">Most Recent</option>
+              </select>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Communities Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
       ) : error ? (
-        <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+        <div className="text-center py-12">
           <p className="text-red-600">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 text-indigo-600 hover:text-indigo-700"
-          >
-            Try again
-          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -170,66 +292,59 @@ export default function Communities() {
               key={community.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -5 }}
-              className="flex flex-col bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
+              className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
             >
               <div className={`h-2 bg-gradient-to-r ${getPlatformColor(community.platform)}`} />
-              <div className="flex flex-col flex-grow p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-grow min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="text-xl font-semibold text-gray-900 truncate">
-                        {community.name}
-                      </h3>
-                      {'trending' in community && community.trending && (
-                        <span className="flex-shrink-0 flex items-center space-x-1 px-2 py-1 bg-rose-100 text-rose-600 rounded-full text-xs">
-                          <TrendingUp className="w-3 h-3" />
-                          <span>Trending</span>
-                        </span>
-                      )}
+              <div className="p-6">
+                <div className="flex items-center space-x-3 mb-3">
+                  {community.iconUrl ? (
+                    <img src={community.iconUrl} alt="" className="w-10 h-10 rounded-full" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-gray-400" />
                     </div>
+                  )}
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{community.name}</h3>
+                    <span className="text-sm text-gray-500 capitalize">{community.platform}</span>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4 line-clamp-2">{community.description}</p>
-                {'topics' in community && community.topics && (
+                <p className="text-gray-600 mb-4">{community.description}</p>
+                {community.topics.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {community.topics.map((topic) => (
                       <span
                         key={topic}
-                        className="inline-flex items-center space-x-1 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm hover:bg-gray-200 transition-colors cursor-pointer"
-                        onClick={() => setSelectedTopic(topic)}
+                        className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-sm"
                       >
-                        <Hash className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate">{topic}</span>
+                        <Hash className="w-3 h-3 mr-1" />
+                        {topic}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="flex items-center justify-between pt-4 mt-auto border-t">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-1 text-gray-600">
-                      <Users className="w-4 h-4 flex-shrink-0" />
-                      <span>{(community.memberCount || 0).toLocaleString()}</span>
+                    <div className="flex items-center space-x-1">
+                      <Users className="w-4 h-4 text-gray-500" />
+                      <span className="text-gray-500">{community.memberCount.toLocaleString()}</span>
                     </div>
-                    <div className="flex items-center space-x-1 text-gray-600">
-                      <MessageCircle className="w-4 h-4 flex-shrink-0" />
-                      <span>Active</span>
-                    </div>
+                    {community.isVerified && (
+                      <span className="text-blue-600 text-sm">Verified</span>
+                    )}
                   </div>
-                  {'url' in community ? (
+                  {community.url ? (
                     <a
                       href={community.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-300"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
-                      <span>Join</span>
-                      <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      Join
                     </a>
                   ) : (
-                    <button className="group flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-300">
-                      <span>Join</span>
-                      <ExternalLink className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                      Join
                     </button>
                   )}
                 </div>
@@ -239,33 +354,89 @@ export default function Communities() {
         </div>
       )}
 
-      {!loading && !error && sortedCommunities.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12 bg-white rounded-xl shadow-sm"
-        >
-          <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No communities found matching your criteria.</p>
-          <div className="mt-4 space-x-4">
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                Clear search
-              </button>
-            )}
-            {selectedPlatform && (
-              <button
-                onClick={() => setSelectedPlatform('')}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                Show all platforms
-              </button>
-            )}
-          </div>
-        </motion.div>
+      {/* Create Community Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl p-6 max-w-md w-full"
+          >
+            <h2 className="text-2xl font-bold mb-4">Create Community</h2>
+            <form onSubmit={handleCreateCommunity} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Community Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newCommunity.name}
+                  onChange={(e) => setNewCommunity({ ...newCommunity, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  required
+                  value={newCommunity.description}
+                  onChange={(e) => setNewCommunity({ ...newCommunity, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-32"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Topics (Press Enter to add)
+                </label>
+                <input
+                  type="text"
+                  value={newCommunity.newTopic}
+                  onChange={(e) => setNewCommunity({ ...newCommunity, newTopic: e.target.value })}
+                  onKeyDown={handleAddTopic}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {newCommunity.topics.map((topic) => (
+                    <span
+                      key={topic}
+                      className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-sm"
+                    >
+                      {topic}
+                      <button
+                        type="button"
+                        onClick={() => setNewCommunity({
+                          ...newCommunity,
+                          topics: newCommunity.topics.filter(t => t !== topic)
+                        })}
+                        className="ml-2 text-indigo-400 hover:text-indigo-600"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  Create Community
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
       )}
     </div>
   );
