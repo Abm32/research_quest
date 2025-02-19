@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// Firebase configuration (Use environment variables for security)
 const firebaseConfig = {
   apiKey: "AIzaSyA7YdB5bKmQp4nFTFqlcW2mvFk3Se1MZ2U",
   authDomain: "pokedex-abhi1.firebaseapp.com",
@@ -15,10 +15,21 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-// ✅ Set persistence correctly
+// Initialize Auth with persistence
+export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence)
   .then(() => console.log("Auth persistence set to local"))
   .catch((error) => console.error("Error setting auth persistence:", error));
+
+// Initialize Firestore with settings for better offline support
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
+
+// Initialize Storage
+export const storage = getStorage(app);
+
+// Export app instance
+export default app;

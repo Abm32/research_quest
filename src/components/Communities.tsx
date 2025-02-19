@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { 
   Search,
   Users,
@@ -14,32 +15,13 @@ import {
   Plus,
   AlertCircle
 } from 'lucide-react';
-import { collection, addDoc, getDocs, query, orderBy, Timestamp, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { useAuth } from './auth/AuthContext';
-import { searchDiscordCommunities, type DiscordCommunity } from '../api/discord';
-import { searchSlackCommunities, type SlackCommunity } from '../api/slack';
-import { searchRedditCommunities, type RedditCommunity } from '../api/reddit';
-
-type Platform = 'discord' | 'slack' | 'reddit' | 'custom';
-
-interface Community {
-  id: string;
-  name: string;
-  description: string;
-  topics: string[];
-  memberCount: number;
-  createdBy?: string;
-  createdAt?: Timestamp;
-  platform: Platform;
-  iconUrl?: string;
-  url?: string;
-  isVerified?: boolean;
-}
+import { communityService } from '../services/communityService';
+import type { Community } from '../types';
 
 export default function Communities() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState<Platform | ''>('');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('');
   const [selectedTopic, setSelectedTopic] = useState('');
   const [sortBy, setSortBy] = useState('popular');
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -55,110 +37,70 @@ export default function Communities() {
 
   const { user } = useAuth();
 
-  const fetchCustomCommunities = async () => {
-    try {
-      const q = query(
-        collection(db, 'communities'),
-        where('platform', '==', 'custom'),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        platform: 'custom' as const
-      })) as Community[];
-    } catch (err) {
-      console.error('Error fetching custom communities:', err);
-      return [];
-    }
-  };
-
-  const fetchAllCommunities = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const customCommunities = await fetchCustomCommunities();
-      let platformCommunities: Community[] = [];
-
-      if (searchQuery) {
-        try {
-          const [discordResults, slackResults, redditResults] = await Promise.all([
-            searchDiscordCommunities(searchQuery).catch(() => []),
-            searchSlackCommunities(searchQuery).catch(() => []),
-            searchRedditCommunities(searchQuery).catch(() => [])
-          ]);
-
-          platformCommunities = [
-            ...discordResults.map(c => ({
-              id: c.id,
-              name: c.name,
-              description: c.description,
-              memberCount: c.memberCount,
-              platform: 'discord' as const,
-              topics: [],
-              iconUrl: c.iconUrl,
-              isVerified: c.isVerified
-            })),
-            ...slackResults.map(c => ({
-              id: c.id,
-              name: c.name,
-              description: c.description,
-              memberCount: c.memberCount,
-              platform: 'slack' as const,
-              topics: [],
-              iconUrl: c.iconUrl
-            })),
-            ...redditResults.map(c => ({
-              id: c.id,
-              name: c.name,
-              description: c.description,
-              memberCount: c.memberCount,
-              platform: 'reddit' as const,
-              topics: [],
-              iconUrl: c.iconUrl,
-              url: c.url
-            }))
-          ];
-        } catch (err) {
-          console.error('Error fetching platform communities:', err);
-        }
-      }
-
-      setCommunities([...customCommunities, ...platformCommunities]);
-    } catch (err) {
-      setError('Failed to fetch communities');
-      console.error('Error fetching all communities:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchAllCommunities();
-  }, [searchQuery]);
+    if (!user) {
+      setCommunities([]);
+      setLoading(false);
+      return;
+    }
+
+    const fetchCommunities = async () => {
+      try {
+        setError('');
+        const fetchedCommunities = await communityService.fetchCommunities(searchQuery);
+        setCommunities(fetchedCommunities);
+      } catch (err) {
+        console.error('Error fetching communities:', err);
+        setError('Failed to fetch communities');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCommunities();
+  }, [user, searchQuery]);
 
   const handleCreateCommunity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     try {
-      await addDoc(collection(db, 'communities'), {
+      setError('');
+      await communityService.createCommunity({
         name: newCommunity.name,
         description: newCommunity.description,
         topics: newCommunity.topics,
-        memberCount: 1,
-        createdBy: user.uid,
-        createdAt: Timestamp.now(),
-        platform: 'custom'
+        platform: 'custom',
+        member_count: 1,
+        activity_level: 'low',
+        created_by: user.uid,
+        members: [user.uid]
       });
 
       setShowCreateModal(false);
       setNewCommunity({ name: '', description: '', topics: [], newTopic: '' });
-      fetchAllCommunities();
+      
+      // Refresh communities list
+      const updatedCommunities = await communityService.fetchCommunities(searchQuery);
+      setCommunities(updatedCommunities);
     } catch (err) {
-      setError('Failed to create community');
       console.error('Error creating community:', err);
+      setError('Failed to create community');
+    }
+  };
+
+  const handleJoinCommunity = async (communityId: string) => {
+    if (!user) return;
+
+    try {
+      setError('');
+      await communityService.joinCommunity(communityId, user.uid);
+      // Refresh communities list
+      const updatedCommunities = await communityService.fetchCommunities(searchQuery);
+      setCommunities(updatedCommunities);
+    } catch (err) {
+      console.error('Error joining community:', err);
+      setError('Failed to join community');
     }
   };
 
@@ -175,33 +117,17 @@ export default function Communities() {
   const filteredCommunities = communities.filter(community => {
     const matchesPlatform = !selectedPlatform || community.platform === selectedPlatform;
     const matchesTopic = !selectedTopic || community.topics.includes(selectedTopic);
-    const matchesSearch = !searchQuery || 
-      community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      community.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesPlatform && matchesTopic && matchesSearch;
+    return matchesPlatform && matchesTopic;
   });
 
   const sortedCommunities = [...filteredCommunities].sort((a, b) => {
     if (sortBy === 'popular') {
-      return b.memberCount - a.memberCount;
+      return b.member_count - a.member_count;
     }
-    return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+    return (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0);
   });
 
   const allTopics = Array.from(new Set(communities.flatMap(c => c.topics)));
-
-  const getPlatformColor = (platform: Platform) => {
-    switch (platform) {
-      case 'discord':
-        return 'from-indigo-500 to-purple-500';
-      case 'slack':
-        return 'from-green-500 to-emerald-500';
-      case 'reddit':
-        return 'from-orange-500 to-red-500';
-      default:
-        return 'from-blue-500 to-cyan-500';
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -214,18 +140,36 @@ export default function Communities() {
           <h1 className="text-3xl font-bold text-gray-900">Research Communities</h1>
           <p className="text-gray-600">Connect and collaborate with researchers worldwide</p>
         </div>
-        {user && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        <div className="flex items-center space-x-4">
+          <Link
+            to="/communities/joined"
+            className="px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
           >
-            <Plus className="w-5 h-5" />
-            <span>Create Community</span>
-          </button>
-        )}
+            Joined Communities
+          </Link>
+          {user && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Community</span>
+            </button>
+          )}
+        </div>
       </motion.div>
 
-      {/* Search and Filter Section */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 p-4 bg-red-50 text-red-600 rounded-lg flex items-center"
+        >
+          <AlertCircle className="w-5 h-5 mr-2" />
+          {error}
+        </motion.div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm mb-8">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col space-y-4">
@@ -242,7 +186,7 @@ export default function Communities() {
               </div>
               <select
                 value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value as Platform | '')}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
                 className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">All Platforms</option>
@@ -276,14 +220,9 @@ export default function Communities() {
         </div>
       </div>
 
-      {/* Communities Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-12">
-          <p className="text-red-600">{error}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -294,16 +233,11 @@ export default function Communities() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
             >
-              <div className={`h-2 bg-gradient-to-r ${getPlatformColor(community.platform)}`} />
               <div className="p-6">
                 <div className="flex items-center space-x-3 mb-3">
-                  {community.iconUrl ? (
-                    <img src={community.iconUrl} alt="" className="w-10 h-10 rounded-full" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Users className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Users className="w-6 h-6 text-gray-400" />
+                  </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">{community.name}</h3>
                     <span className="text-sm text-gray-500 capitalize">{community.platform}</span>
@@ -327,25 +261,34 @@ export default function Communities() {
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-1">
                       <Users className="w-4 h-4 text-gray-500" />
-                      <span className="text-gray-500">{community.memberCount.toLocaleString()}</span>
+                      <span className="text-gray-500">{community.member_count}</span>
                     </div>
-                    {community.isVerified && (
-                      <span className="text-blue-600 text-sm">Verified</span>
-                    )}
                   </div>
-                  {community.url ? (
+                  {community.platform === 'custom' ? (
+                    community.members?.includes(user?.uid || '') ? (
+                      <Link
+                        to={`/communities/${community.id}/chat`}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Chat
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => handleJoinCommunity(community.id)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Join
+                      </button>
+                    )
+                  ) : (
                     <a
-                      href={community.url}
+                      href="#"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                       Join
                     </a>
-                  ) : (
-                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                      Join
-                    </button>
                   )}
                 </div>
               </div>

@@ -21,7 +21,7 @@ export function Signup() {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(user, { displayName: name });
-      navigate('/');
+      navigate('/profile/setup');
     } catch (err) {
       setError('Failed to create an account. Please try again.');
       console.error(err);

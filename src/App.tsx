@@ -4,8 +4,11 @@ import { AuthProvider, useAuth } from './components/auth/AuthContext';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
 import Communities from './components/Communities';
+import JoinedCommunities from './components/JoinedCommunities';
+import CommunityChat from './components/CommunityChat';
 import Resources from './components/Resources';
 import Profile from './components/Profile';
+import { ProfileSetup } from './components/ProfileSetup';
 import ResearchJourney from './components/ResearchJourney';
 import Footer from './components/Footer';
 import { Login } from './components/auth/Login';
@@ -37,10 +40,34 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route
+                path="/profile/setup"
+                element={
+                  <PrivateRoute>
+                    <ProfileSetup />
+                  </PrivateRoute>
+                }
+              />
+              <Route
                 path="/communities"
                 element={
                   <PrivateRoute>
                     <Communities />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/communities/joined"
+                element={
+                  <PrivateRoute>
+                    <JoinedCommunities />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/communities/:communityId/chat"
+                element={
+                  <PrivateRoute>
+                    <CommunityChat />
                   </PrivateRoute>
                 }
               />
