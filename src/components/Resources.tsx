@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Search,
@@ -7,15 +7,16 @@ import {
   Book,
   Download,
   Share2,
-  Bot
+  Bot,
+  Loader2
 } from 'lucide-react';
-import { useAIAssistant } from '../App';
+import axios from 'axios';
 
 export default function Resources() {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const { setIsOpen } = useAIAssistant();
-
-  const resources = [
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [resources, setResources] = useState([
     {
       id: '1',
       type: 'paper',
@@ -43,7 +44,51 @@ export default function Resources() {
       downloads: 2341,
       shares: 567
     }
-  ];
+  ]);
+
+  const handleAISearch = async () => {
+    if (!searchQuery.trim() || !isAIMode) return;
+
+    setIsSearching(true);
+    try {
+      const API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-1B-Instruct";
+      const API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+
+      const { data } = await axios.post(
+        API_URL,
+        { 
+          inputs: `You are a research resource assistant. Help find relevant research resources based on the following query: ${searchQuery}. Analyze the query and suggest relevant papers, datasets, and educational materials.` 
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const aiResponse = data[0]?.generated_text;
+      if (aiResponse) {
+        // Filter resources based on AI response
+        const relevantResources = resources.filter(resource => 
+          aiResponse.toLowerCase().includes(resource.title.toLowerCase()) ||
+          aiResponse.toLowerCase().includes(resource.description.toLowerCase())
+        );
+
+        setResources(relevantResources);
+      }
+    } catch (err) {
+      console.error('Error with AI search:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAIMode) {
+      handleAISearch();
+    }
+  }, [searchQuery, isAIMode]);
 
   const resourceIcons = {
     paper: FileText,
@@ -73,20 +118,26 @@ export default function Resources() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search resources by title, author, or type..."
-              className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder={isAIMode ? "Ask AI to find resources..." : "Search resources by title, author, or type..."}
+              className={`w-full pl-10 pr-12 py-2 border rounded-lg focus:ring-2 focus:border-indigo-500 transition-colors ${
+                isAIMode 
+                  ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
+                  : 'border-gray-300 focus:ring-indigo-500'
+              }`}
             />
             <button
-              onClick={() => setIsOpen(true)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
-              title="Ask AI Assistant"
+              onClick={() => setIsAIMode(!isAIMode)}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                isAIMode 
+                  ? 'text-indigo-600 bg-indigo-100 hover:bg-indigo-200' 
+                  : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+              }`}
+              title={isAIMode ? "AI Mode Active" : "Enable AI Mode"}
             >
               <Bot className="w-5 h-5" />
             </button>
           </div>
-          <select 
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          >
+          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
             <option value="">All Types</option>
             <option value="paper">Papers</option>
             <option value="dataset">Datasets</option>
@@ -94,6 +145,12 @@ export default function Resources() {
           </select>
         </div>
       </div>
+
+      {isSearching && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {resources.map((resource, index) => {

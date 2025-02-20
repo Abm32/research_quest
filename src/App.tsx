@@ -16,7 +16,7 @@ import { Signup } from './components/auth/Signup';
 import { FloatingResearchAssistant } from './components/AIChat/FloatingResearchAssistant';
 
 // Create context for AI Assistant state
-export const AIAssistantContext = createContext<{
+const AIAssistantContext = createContext<{
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }>({
@@ -63,9 +63,9 @@ function App() {
     <AuthProvider>
       <AIAssistantContext.Provider value={{ isOpen: isAIAssistantOpen, setIsOpen: setIsAIAssistantOpen }}>
         <Router>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen flex flex-col bg-gray-50">
             <Navbar />
-            <main>
+            <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />

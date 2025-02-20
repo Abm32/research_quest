@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search,
   Users,
@@ -14,12 +14,16 @@ import {
   Loader2,
   Plus,
   AlertCircle,
-  Bot
+  Bot,
+  Globe
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { communityService } from '../services/communityService';
+import { searchDiscordCommunities } from '../api/discord';
+import { searchSlackCommunities } from '../api/slack';
+import { searchRedditCommunities } from '../api/reddit';
 import type { Community } from '../types';
-import { useAIAssistant } from '../App';
+import axios from 'axios';
 
 export default function Communities() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,7 +34,11 @@ export default function Communities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAIChat, setShowAIChat] = useState(false);
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [aiResponse, setAIResponse] = useState<string | null>(null);
+  const [customCommunities, setCustomCommunities] = useState<Community[]>([]);
+  const [platformCommunities, setPlatformCommunities] = useState<Community[]>([]);
   const [newCommunity, setNewCommunity] = useState({
     name: '',
     description: '',
@@ -39,20 +47,20 @@ export default function Communities() {
   });
 
   const { user } = useAuth();
-  const { setIsOpen } = useAIAssistant();
 
   useEffect(() => {
     if (!user) {
-      setCommunities([]);
+      setCustomCommunities([]);
+      setPlatformCommunities([]);
       setLoading(false);
       return;
     }
 
-    const fetchCommunities = async () => {
+    const fetchCustomCommunities = async () => {
       try {
         setError('');
-        const fetchedCommunities = await communityService.fetchCommunities(searchQuery);
-        setCommunities(fetchedCommunities);
+        const fetchedCommunities = await communityService.fetchCommunities('');
+        setCustomCommunities(fetchedCommunities);
       } catch (err) {
         console.error('Error fetching communities:', err);
         setError('Failed to fetch communities');
@@ -61,8 +69,179 @@ export default function Communities() {
       }
     };
 
-    fetchCommunities();
-  }, [user, searchQuery]);
+    fetchCustomCommunities();
+  }, [user]);
+
+  useEffect(() => {
+    const searchPlatformCommunities = async () => {
+      if (!searchQuery || selectedPlatform === 'custom') {
+        setPlatformCommunities([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let results: Community[] = [];
+        
+        const platformsToSearch = selectedPlatform && selectedPlatform !== 'custom' 
+          ? [selectedPlatform] 
+          : ['discord', 'slack', 'reddit'];
+        
+        await Promise.all(platformsToSearch.map(async (platform) => {
+          let platformResults: Community[] = [];
+          
+          switch (platform) {
+            case 'discord':
+              const discordResults = await searchDiscordCommunities(searchQuery);
+              platformResults = discordResults.map(c => ({
+                ...c,
+                platform: 'discord',
+                topics: [],
+                created_by: '',
+                members: [],
+                activity_level: 'medium',
+                member_count: c.memberCount
+              }));
+              break;
+            
+            case 'slack':
+              const slackResults = await searchSlackCommunities(searchQuery);
+              platformResults = slackResults.map(c => ({
+                ...c,
+                platform: 'slack',
+                topics: [],
+                created_by: '',
+                members: [],
+                activity_level: 'medium',
+                member_count: c.memberCount
+              }));
+              break;
+            
+            case 'reddit':
+              const redditResults = await searchRedditCommunities(searchQuery);
+              platformResults = redditResults.map(c => ({
+                ...c,
+                platform: 'reddit',
+                topics: [],
+                created_by: '',
+                members: [],
+                activity_level: 'medium',
+                member_count: c.memberCount
+              }));
+              break;
+          }
+          
+          results = [...results, ...platformResults];
+        }));
+
+        setPlatformCommunities(results);
+      } catch (err) {
+        console.error(`Error searching communities:`, err);
+        setError(`Failed to search communities`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!isAIMode) {
+      searchPlatformCommunities();
+    }
+  }, [selectedPlatform, searchQuery, isAIMode]);
+
+  useEffect(() => {
+    if (!isAIMode) {
+      let filteredCommunities: Community[] = [];
+
+      if (selectedPlatform === 'custom') {
+        filteredCommunities = [...customCommunities];
+      } else if (selectedPlatform) {
+        filteredCommunities = [...platformCommunities];
+      } else {
+        filteredCommunities = [...customCommunities, ...platformCommunities];
+      }
+
+      if (searchQuery) {
+        filteredCommunities = filteredCommunities.filter(community =>
+          community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          community.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          community.topics.some(topic => 
+            topic.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        );
+      }
+
+      if (selectedTopic) {
+        filteredCommunities = filteredCommunities.filter(
+          community => community.topics.includes(selectedTopic)
+        );
+      }
+
+      filteredCommunities.sort((a, b) => {
+        if (sortBy === 'popular') {
+          return b.member_count - a.member_count;
+        }
+        return (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0);
+      });
+
+      setCommunities(filteredCommunities);
+    }
+  }, [searchQuery, selectedPlatform, selectedTopic, sortBy, isAIMode, customCommunities, platformCommunities]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    if (isAIMode) {
+      handleAISearch();
+    }
+  };
+
+  const handleAISearch = async () => {
+    if (!searchQuery.trim() || !isAIMode) return;
+
+    setIsSearching(true);
+    setAIResponse(null);
+    try {
+      const API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-1B-Instruct";
+      const API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+
+      const { data } = await axios.post(
+        API_URL,
+        { 
+          inputs: `You are a research community assistant. Help find relevant research communities based on the following query: ${searchQuery}. Analyze the query and suggest relevant communities, topics, and potential collaborations. Format your response in a clear, structured way with sections for:
+          1. Relevant Research Areas
+          2. Suggested Communities
+          3. Potential Collaborations
+          4. Additional Resources` 
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const aiResponse = data[0]?.generated_text;
+      if (aiResponse) {
+        setAIResponse(aiResponse);
+
+        const relevantCommunities = customCommunities.filter(community => 
+          aiResponse.toLowerCase().includes(community.name.toLowerCase()) ||
+          community.topics.some(topic => 
+            aiResponse.toLowerCase().includes(topic.toLowerCase())
+          )
+        );
+
+        setCommunities(relevantCommunities);
+      }
+    } catch (err) {
+      console.error('Error with AI search:', err);
+      setError('AI search failed. Falling back to regular search.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleCreateCommunity = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,9 +263,8 @@ export default function Communities() {
       setShowCreateModal(false);
       setNewCommunity({ name: '', description: '', topics: [], newTopic: '' });
       
-      // Refresh communities list
-      const updatedCommunities = await communityService.fetchCommunities(searchQuery);
-      setCommunities(updatedCommunities);
+      const updatedCommunities = await communityService.fetchCommunities('');
+      setCustomCommunities(updatedCommunities);
     } catch (err) {
       console.error('Error creating community:', err);
       setError('Failed to create community');
@@ -99,9 +277,8 @@ export default function Communities() {
     try {
       setError('');
       await communityService.joinCommunity(communityId, user.uid);
-      // Refresh communities list
-      const updatedCommunities = await communityService.fetchCommunities(searchQuery);
-      setCommunities(updatedCommunities);
+      const updatedCommunities = await communityService.fetchCommunities('');
+      setCustomCommunities(updatedCommunities);
     } catch (err) {
       console.error('Error joining community:', err);
       setError('Failed to join community');
@@ -118,20 +295,7 @@ export default function Communities() {
     }
   };
 
-  const filteredCommunities = communities.filter(community => {
-    const matchesPlatform = !selectedPlatform || community.platform === selectedPlatform;
-    const matchesTopic = !selectedTopic || community.topics.includes(selectedTopic);
-    return matchesPlatform && matchesTopic;
-  });
-
-  const sortedCommunities = [...filteredCommunities].sort((a, b) => {
-    if (sortBy === 'popular') {
-      return b.member_count - a.member_count;
-    }
-    return (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0);
-  });
-
-  const allTopics = Array.from(new Set(communities.flatMap(c => c.topics)));
+  const allTopics = Array.from(new Set(customCommunities.flatMap(c => c.topics)));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -177,116 +341,167 @@ export default function Communities() {
       <div className="bg-white rounded-xl shadow-sm mb-8">
         <div className="p-4 sm:p-6">
           <div className="flex flex-col space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search communities..."
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <button
-                  onClick={() => setIsOpen(true)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
-                  title="Ask AI Assistant"
-                >
-                  <Bot className="w-5 h-5" />
-                </button>
+            <form onSubmit={handleSearch}>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={isAIMode ? "Ask AI to find communities..." : "Search communities..."}
+                    className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors ${
+                      isAIMode 
+                        ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
+                        : 'border-gray-300 focus:ring-indigo-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAIMode(!isAIMode);
+                      if (isAIMode) {
+                        setAIResponse(null);
+                      }
+                    }}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                      isAIMode 
+                        ? 'text-indigo-600 bg-indigo-100 hover:bg-indigo-200' 
+                        : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                    }`}
+                    title={isAIMode ? "AI Mode Active" : "Enable AI Mode"}
+                  >
+                    <Bot className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {!isAIMode && (
+                  <>
+                    <select
+                      value={selectedPlatform}
+                      onChange={(e) => setSelectedPlatform(e.target.value)}
+                      className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">All Platforms</option>
+                      <option value="discord">Discord</option>
+                      <option value="slack">Slack</option>
+                      <option value="reddit">Reddit</option>
+                      <option value="custom">Custom</option>
+                    </select>
+
+                    {allTopics.length > 0 && (
+                      <select
+                        value={selectedTopic}
+                        onChange={(e) => setSelectedTopic(e.target.value)}
+                        className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="">All Topics</option>
+                        {allTopics.map(topic => (
+                          <option key={topic} value={topic}>{topic}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="popular">Most Popular</option>
+                      <option value="recent">Most Recent</option>
+                    </select>
+                  </>
+                )}
               </div>
-              <select
-                value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">All Platforms</option>
-                <option value="discord">Discord</option>
-                <option value="slack">Slack</option>
-                <option value="reddit">Reddit</option>
-                <option value="custom">Custom</option>
-              </select>
-              {allTopics.length > 0 && (
-                <select
-                  value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">All Topics</option>
-                  {allTopics.map(topic => (
-                    <option key={topic} value={topic}>{topic}</option>
-                  ))}
-                </select>
-              )}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="popular">Most Popular</option>
-                <option value="recent">Most Recent</option>
-              </select>
-            </div>
+            </form>
           </div>
         </div>
       </div>
 
-      {loading ? (
+      {isSearching && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
+      )}
+
+      {isAIMode && aiResponse && !isSearching && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl shadow-sm p-6 mb-8"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Research Assistant Suggestions</h3>
+          <div className="prose prose-indigo max-w-none">
+            <div className="whitespace-pre-wrap text-gray-600">{aiResponse}</div>
+          </div>
+        </motion.div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedCommunities.map((community) => (
+          {communities.map((community) => (
             <motion.div
               key={community.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
             >
-              <div className="p-6">
+              <div className="p-4">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Users className="w-6 h-6 text-gray-400" />
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    {community.platform === 'discord' ? (
+                      <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" alt="Discord" className="w-6 h-6" />
+                    ) : community.platform === 'slack' ? (
+                      <img src="https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png" alt="Slack" className="w-6 h-6" />
+                    ) : community.platform === 'reddit' ? (
+                      <img src="https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png" alt="Reddit" className="w-6 h-6" />
+                    ) : (
+                      <Globe className="w-6 h-6 text-gray-400" />
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{community.name}</h3>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 truncate">{community.name}</h3>
                     <span className="text-sm text-gray-500 capitalize">{community.platform}</span>
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">{community.description}</p>
+                <p className="text-gray-600 text-sm line-clamp-2 mb-4 h-10">{community.description}</p>
                 {community.topics.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {community.topics.map((topic) => (
+                    {community.topics.slice(0, 3).map((topic) => (
                       <span
                         key={topic}
-                        className="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-sm"
+                        className="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs"
                       >
                         <Hash className="w-3 h-3 mr-1" />
                         {topic}
                       </span>
                     ))}
+                    {community.topics.length > 3 && (
+                      <span className="text-xs text-gray-500">+{community.topics.length - 3} more</span>
+                    )}
                   </div>
                 )}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-4 h-4 text-gray-500" />
-                      <span className="text-gray-500">{community.member_count}</span>
-                    </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-500">{community.member_count}</span>
                   </div>
                   {community.platform === 'custom' ? (
                     community.members?.includes(user?.uid || '') ? (
                       <Link
                         to={`/communities/${community.id}/chat`}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
                       >
                         Chat
                       </Link>
                     ) : (
                       <button
                         onClick={() => handleJoinCommunity(community.id)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
                       >
                         Join
                       </button>
@@ -296,9 +511,10 @@ export default function Communities() {
                       href="#"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors inline-flex items-center space-x-1"
                     >
-                      Join
+                      <span>Join</span>
+                      <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
@@ -308,7 +524,6 @@ export default function Communities() {
         </div>
       )}
 
-      {/* Create Community Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <motion.div
