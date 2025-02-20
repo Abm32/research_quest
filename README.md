@@ -9,12 +9,21 @@ A modern platform for researchers to collaborate, share knowledge, and track the
 - Task tracking and management
 - Progress visualization
 - Collaboration tools
+- AI-powered Research Assistant for each phase
+
+### 🤖 AI Research Assistant
+- Context-aware AI assistance for each research phase
+- Real-time chat interface
+- Suggested prompts for common research queries
+- Conversation history with copy and clear functionality
+- Expandable floating chat window
 
 ### 👥 Communities
 - Join research communities across multiple platforms (Discord, Slack, Reddit)
 - Create custom communities
 - Real-time chat
 - Resource sharing
+- AI-powered community search and recommendations
 
 ### 🏆 Gamification
 - Points system
@@ -27,6 +36,7 @@ A modern platform for researchers to collaborate, share knowledge, and track the
 - Dataset repository
 - Educational materials
 - Version tracking
+- AI-powered resource recommendations
 
 ## Tech Stack
 
@@ -36,13 +46,19 @@ A modern platform for researchers to collaborate, share knowledge, and track the
   - Tailwind CSS
   - Framer Motion
   - Lucide Icons
+  - Axios for API calls
 
-- **Backend:**
+- **Backend & Services:**
   - Firebase
     - Authentication
     - Firestore
     - Storage
     - Security Rules
+  - Supabase
+    - Database
+    - Row Level Security
+  - HuggingFace API
+    - AI Research Assistant
 
 - **Development:**
   - Vite
@@ -62,7 +78,19 @@ A modern platform for researchers to collaborate, share knowledge, and track the
    npm install
    ```
 
-3. Create a Firebase project and add your configuration to `src/config/firebase.ts`:
+3. Set up environment variables in `.env`:
+   ```
+   VITE_HUGGINGFACE_API_KEY=your_api_key
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_key
+   VITE_DISCORD_CLIENT_ID=your_discord_client_id
+   VITE_DISCORD_CLIENT_SECRET=your_discord_client_secret
+   VITE_SLACK_BOT_TOKEN=your_slack_bot_token
+   VITE_REDDIT_CLIENT_ID=your_reddit_client_id
+   VITE_REDDIT_CLIENT_SECRET=your_reddit_client_secret
+   ```
+
+4. Create a Firebase project and add your configuration to `src/config/firebase.ts`:
    ```typescript
    const firebaseConfig = {
      apiKey: "your-api-key",
@@ -74,15 +102,20 @@ A modern platform for researchers to collaborate, share knowledge, and track the
    };
    ```
 
-4. Deploy Firebase security rules:
+5. Deploy Firebase security rules:
    - Copy the contents of `firebase.rules` to your Firebase Console
    - Deploy the rules through the Firebase Console or CLI
 
-5. Create Firestore indexes:
+6. Create Firestore indexes:
    - Use `firestore.indexes.json` to set up the required indexes
    - Deploy through Firebase Console or CLI
 
-6. Start the development server:
+7. Set up Supabase:
+   - Create a new Supabase project
+   - Run the migrations in `supabase/migrations`
+   - Update the environment variables with your Supabase credentials
+
+8. Start the development server:
    ```bash
    npm run dev
    ```
@@ -92,7 +125,8 @@ A modern platform for researchers to collaborate, share knowledge, and track the
 ```
 src/
 ├── api/                    # API integration for external platforms
-├── components/             # React components
+├── components/            
+│   ├── AIChat/            # AI Research Assistant components
 │   ├── auth/              # Authentication components
 │   ├── CollaborationTools/# Collaboration features
 │   ├── Gamification/      # Gamification components
@@ -100,7 +134,7 @@ src/
 │   └── ResearchJourney/   # Research management
 ├── config/                # Configuration files
 ├── hooks/                 # Custom React hooks
-├── services/             # Firebase service layers
+├── services/             # Firebase & Supabase service layers
 ├── store/                # State management
 └── types/                # TypeScript type definitions
 ```
@@ -112,6 +146,11 @@ src/
 - `ProjectCreation.tsx`: New research project creation
 - `TaskTracking.tsx`: Research task management
 
+### AI Research Assistant
+- `FloatingResearchAssistant.tsx`: Floating chat interface
+- `ResearchAssistant.tsx`: Phase-specific AI assistance
+- `EnhancedResearchAssistant.tsx`: Advanced AI features
+
 ### Communities
 - `Communities.tsx`: Community discovery and joining
 - `CommunityChat.tsx`: Real-time community chat
@@ -122,14 +161,16 @@ src/
 - `AchievementsShowcase.tsx`: User achievements
 - `RewardsStore.tsx`: Rewards redemption
 
-## Firebase Security
+## Security
 
-The platform uses comprehensive security rules to ensure data protection:
+The platform uses comprehensive security rules across Firebase and Supabase:
 
 - User authentication required for all operations
 - Row-level security for user data
 - Validation of data modifications
 - Storage size and type restrictions
+- API key protection
+- Cross-platform security policies
 
 ## Contributing
 
@@ -148,3 +189,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Icons by [Lucide](https://lucide.dev/)
 - UI animations by [Framer Motion](https://www.framer.com/motion/)
 - Styling with [Tailwind CSS](https://tailwindcss.com/)
+- AI capabilities powered by [HuggingFace](https://huggingface.co/)

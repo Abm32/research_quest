@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Award, Star, Download } from 'lucide-react';
+import { ResearchAssistant } from '../AIChat/ResearchAssistant';
 
 export function EvaluationPhase() {
   const achievements = [
@@ -73,6 +74,11 @@ export function EvaluationPhase() {
           </motion.div>
         ))}
       </div>
+
+      <ResearchAssistant 
+        context="You are a research evaluation assistant. Help researchers evaluate their findings, draw conclusions, and prepare their research for publication. Provide guidance on result interpretation, limitations discussion, and future research directions."
+        placeholder="Ask for help evaluating results and preparing conclusions..."
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

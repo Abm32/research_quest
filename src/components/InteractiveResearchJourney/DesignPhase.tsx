@@ -10,6 +10,7 @@ import {
   Tag,
   AlertCircle
 } from 'lucide-react';
+import { ResearchAssistant } from '../AIChat/ResearchAssistant';
 
 export function DesignPhase() {
   const [tasks, setTasks] = React.useState([
@@ -190,6 +191,11 @@ export function DesignPhase() {
           </div>
         </motion.div>
       </div>
+
+      <ResearchAssistant 
+        context="You are a research methodology assistant. Help researchers design their studies by providing guidance on research methods, data collection approaches, and experimental design. Focus on helping them choose appropriate methodologies for their research questions."
+        placeholder="Ask for help with research methodology and design..."
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

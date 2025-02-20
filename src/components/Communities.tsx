@@ -13,11 +13,13 @@ import {
   Hash,
   Loader2,
   Plus,
-  AlertCircle
+  AlertCircle,
+  Bot
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { communityService } from '../services/communityService';
 import type { Community } from '../types';
+import { useAIAssistant } from '../App';
 
 export default function Communities() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,6 +30,7 @@ export default function Communities() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [newCommunity, setNewCommunity] = useState({
     name: '',
     description: '',
@@ -36,6 +39,7 @@ export default function Communities() {
   });
 
   const { user } = useAuth();
+  const { setIsOpen } = useAIAssistant();
 
   useEffect(() => {
     if (!user) {
@@ -181,8 +185,15 @@ export default function Communities() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search communities..."
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
+                <button
+                  onClick={() => setIsOpen(true)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                  title="Ask AI Assistant"
+                >
+                  <Bot className="w-5 h-5" />
+                </button>
               </div>
               <select
                 value={selectedPlatform}

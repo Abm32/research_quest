@@ -6,10 +6,15 @@ import {
   Database,
   Book,
   Download,
-  Share2
+  Share2,
+  Bot
 } from 'lucide-react';
+import { useAIAssistant } from '../App';
 
 export default function Resources() {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const { setIsOpen } = useAIAssistant();
+
   const resources = [
     {
       id: '1',
@@ -66,11 +71,22 @@ export default function Resources() {
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search resources by title, author, or type..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+            <button
+              onClick={() => setIsOpen(true)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+              title="Ask AI Assistant"
+            >
+              <Bot className="w-5 h-5" />
+            </button>
           </div>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <select 
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
             <option value="">All Types</option>
             <option value="paper">Papers</option>
             <option value="dataset">Datasets</option>

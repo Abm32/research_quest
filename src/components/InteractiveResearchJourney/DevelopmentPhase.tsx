@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, FileSpreadsheet, BarChart2, Share2 } from 'lucide-react';
+import { ResearchAssistant } from '../AIChat/ResearchAssistant';
 
 export function DevelopmentPhase() {
   const [progress, setProgress] = React.useState(45);
@@ -70,6 +71,11 @@ export function DevelopmentPhase() {
           </motion.div>
         ))}
       </div>
+
+      <ResearchAssistant 
+        context="You are a research development assistant. Help researchers with data collection, analysis, and interpretation. Provide guidance on statistical methods, data visualization, and preliminary findings interpretation."
+        placeholder="Ask for help with data collection and analysis..."
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.button
