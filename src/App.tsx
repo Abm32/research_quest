@@ -42,7 +42,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(true);
 
   const suggestedPrompts = [
     {
@@ -134,8 +134,8 @@ function App() {
               placeholder="Ask me anything about your research..."
               suggestedPrompts={suggestedPrompts}
               position="bottom-right"
-              isOpen={isAIAssistantOpen}
-              onClose={() => setIsAIAssistantOpen(false)}
+              isOpen={!isAIAssistantOpen}
+              onClose={() => setIsAIAssistantOpen(!isAIAssistantOpen)}
             />
           </div>
         </Router>
