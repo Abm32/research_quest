@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search,
@@ -15,7 +15,9 @@ import {
   Plus,
   AlertCircle,
   Bot,
-  Globe
+  Globe,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { communityService } from '../services/communityService';
@@ -39,6 +41,7 @@ export default function Communities() {
   const [aiResponse, setAIResponse] = useState<string | null>(null);
   const [customCommunities, setCustomCommunities] = useState<Community[]>([]);
   const [platformCommunities, setPlatformCommunities] = useState<Community[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [newCommunity, setNewCommunity] = useState({
     name: '',
     description: '',
@@ -298,30 +301,31 @@ export default function Communities() {
   const allTopics = Array.from(new Set(customCommunities.flatMap(c => c.topics)));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-between items-center mb-8"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
       >
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Research Communities</h1>
-          <p className="text-gray-600">Connect and collaborate with researchers worldwide</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Research Communities</h1>
+          <p className="text-gray-600 text-sm sm:text-base">Connect and collaborate with researchers worldwide</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-3">
           <Link
             to="/communities/joined"
-            className="px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+            className="flex-1 sm:flex-none text-center px-4 py-2 text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors text-sm"
           >
             Joined Communities
           </Link>
           {user && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
             >
-              <Plus className="w-5 h-5" />
-              <span>Create Community</span>
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Community</span>
+              <span className="sm:hidden">Create</span>
             </button>
           )}
         </div>
@@ -331,89 +335,101 @@ export default function Communities() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 p-4 bg-red-50 text-red-600 rounded-lg flex items-center"
+          className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center text-sm"
         >
-          <AlertCircle className="w-5 h-5 mr-2" />
+          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
           {error}
         </motion.div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm mb-8">
-        <div className="p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm mb-6">
+        <div className="p-4">
           <div className="flex flex-col space-y-4">
-            <form onSubmit={handleSearch}>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={isAIMode ? "Ask AI to find communities..." : "Search communities..."}
-                    className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors ${
-                      isAIMode 
-                        ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
-                        : 'border-gray-300 focus:ring-indigo-500'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAIMode(!isAIMode);
-                      if (isAIMode) {
-                        setAIResponse(null);
-                      }
-                    }}
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
-                      isAIMode 
-                        ? 'text-indigo-600 bg-indigo-100 hover:bg-indigo-200' 
-                        : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                    }`}
-                    title={isAIMode ? "AI Mode Active" : "Enable AI Mode"}
-                  >
-                    <Bot className="w-5 h-5" />
-                  </button>
-                </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={isAIMode ? "Ask AI to find communities..." : "Search communities..."}
+                className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
+                  isAIMode 
+                    ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
+                    : 'border-gray-300 focus:ring-indigo-500'
+                }`}
+              />
+              <button
+                onClick={() => setIsAIMode(!isAIMode)}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                  isAIMode 
+                    ? 'text-indigo-600 bg-indigo-100 hover:bg-indigo-200' 
+                    : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                }`}
+              >
+                <Bot className="w-5 h-5" />
+              </button>
+            </div>
 
-                {!isAIMode && (
-                  <>
-                    <select
-                      value={selectedPlatform}
-                      onChange={(e) => setSelectedPlatform(e.target.value)}
-                      className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="">All Platforms</option>
-                      <option value="discord">Discord</option>
-                      <option value="slack">Slack</option>
-                      <option value="reddit">Reddit</option>
-                      <option value="custom">Custom</option>
-                    </select>
-
-                    {allTopics.length > 0 && (
-                      <select
-                        value={selectedTopic}
-                        onChange={(e) => setSelectedTopic(e.target.value)}
-                        className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="">All Topics</option>
-                        {allTopics.map(topic => (
-                          <option key={topic} value={topic}>{topic}</option>
-                        ))}
-                      </select>
-                    )}
-
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="popular">Most Popular</option>
-                      <option value="recent">Most Recent</option>
-                    </select>
-                  </>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <Filter className="w-5 h-5" />
+                <span>Filters</span>
+                {(selectedPlatform || selectedTopic || sortBy !== 'popular') && (
+                  <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
+                    Active
+                  </span>
                 )}
               </div>
-            </form>
+              <ChevronDown className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4 pt-4"
+                >
+                  <select
+                    value={selectedPlatform}
+                    onChange={(e) => setSelectedPlatform(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="">All Platforms</option>
+                    <option value="discord">Discord</option>
+                    <option value="slack">Slack</option>
+                    <option value="reddit">Reddit</option>
+                    <option value="custom">Custom</option>
+                  </select>
+
+                  {allTopics.length > 0 && (
+                    <select
+                      value={selectedTopic}
+                      onChange={(e) => setSelectedTopic(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    >
+                      <option value="">All Topics</option>
+                      {allTopics.map(topic => (
+                        <option key={topic} value={topic}>{topic}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  >
+                    <option value="popular">Most Popular</option>
+                    <option value="recent">Most Recent</option>
+                  </select>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -428,11 +444,11 @@ export default function Communities() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl shadow-sm p-6 mb-8"
+          className="bg-white rounded-xl shadow-sm p-6 mb-6"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Research Assistant Suggestions</h3>
           <div className="prose prose-indigo max-w-none">
-            <div className="whitespace-pre-wrap text-gray-600">{aiResponse}</div>
+            <div className="whitespace-pre-wrap text-gray-600 text-sm">{aiResponse}</div>
           </div>
         </motion.div>
       )}
@@ -442,7 +458,7 @@ export default function Communities() {
           <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {communities.map((community) => (
             <motion.div
               key={community.id}
@@ -464,14 +480,14 @@ export default function Communities() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">{community.name}</h3>
+                    <h3 className="text-base font-semibold text-gray-900 truncate">{community.name}</h3>
                     <span className="text-sm text-gray-500 capitalize">{community.platform}</span>
                   </div>
                 </div>
                 <p className="text-gray-600 text-sm line-clamp-2 mb-4 h-10">{community.description}</p>
                 {community.topics.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {community.topics.slice(0, 3).map((topic) => (
+                    {community.topics.slice(0, 2).map((topic) => (
                       <span
                         key={topic}
                         className="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs"
@@ -480,8 +496,8 @@ export default function Communities() {
                         {topic}
                       </span>
                     ))}
-                    {community.topics.length > 3 && (
-                      <span className="text-xs text-gray-500">+{community.topics.length - 3} more</span>
+                    {community.topics.length > 2 && (
+                      <span className="text-xs text-gray-500">+{community.topics.length - 2} more</span>
                     )}
                   </div>
                 )}
