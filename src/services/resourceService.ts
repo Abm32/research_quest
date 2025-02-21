@@ -229,40 +229,79 @@ export const resourceService = {
   },
 
   async searchDOAJ(query: string): Promise<Resource[]> {
+    if (!query) return [];
+    
     try {
-      const response = await axios.get('https://doaj.org/api/v2/search/articles', {
+      // Using the correct DOAJ API endpoint
+      const response = await axios.get(`https://doaj.org/api/v2/search/articles/${encodeURIComponent(query)}`, {
         params: {
-          q: query,
           page: 1,
           pageSize: 10
+        },
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
-
+  
+      if (!response.data || !Array.isArray(response.data.results)) {
+        console.warn('DOAJ API returned unexpected data structure:', response.data);
+        return [];
+      }
+  
       return response.data.results.map((result: {
         id: string;
         bibjson: {
           title: string;
           abstract?: string;
-          author?: { name: string }[];
-          link?: { url: string }[];
+          author?: { name: string; affiliation?: string }[];
+          link?: { url: string; type?: string }[];
           keywords?: string[];
+          journal?: { 
+            title?: string;
+            volume?: string;
+            number?: string;
+            publisher?: string
+          };
+          year?: string;
         };
         created_date: string;
       }) => createSerializableResource(
         result.id || crypto.randomUUID(),
         {
-          title: result.bibjson.title,
-          description: result.bibjson.abstract || '',
+          title: result.bibjson?.title || 'Untitled',
+          description: result.bibjson?.abstract || '',
           type: 'paper',
-          author: result.bibjson.author?.map((a) => a.name).join(', ') || 'Unknown',
-          source: 'DOAJ',
-          url: result.bibjson.link?.[0]?.url,
-          tags: result.bibjson.keywords || [],
-          createdAt: new Date(result.created_date)
+          author: result.bibjson?.author?.map(a => a.name).join(', ') || 'Unknown',
+          source: `DOAJ - ${result.bibjson?.journal?.title || 'Unknown Journal'}`,
+          url: result.bibjson?.link?.find(l => l.type === 'fulltext')?.url || 
+               result.bibjson?.link?.[0]?.url || '',
+          tags: [
+            ...(result.bibjson?.keywords || []),
+            result.bibjson?.year ? `Year: ${result.bibjson.year}` : '',
+            result.bibjson?.journal?.publisher ? `Publisher: ${result.bibjson.journal.publisher}` : ''
+          ].filter(Boolean),
+          createdAt: new Date(result.created_date || Date.now()),
+          metadata: {
+            volume: result.bibjson?.journal?.volume,
+            issue: result.bibjson?.journal?.number,
+            publisher: result.bibjson?.journal?.publisher,
+            year: result.bibjson?.year,
+            affiliations: result.bibjson?.author?.map(a => a.affiliation).filter(Boolean)
+          }
         }
       ));
     } catch (error) {
-      console.error('DOAJ API Error:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('DOAJ API Error:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          headers: error.response?.headers
+        });
+      } else {
+        console.error('DOAJ API Error:', error);
+      }
       return [];
     }
   },
@@ -277,34 +316,39 @@ export const resourceService = {
         }
       });
 
-      const parser = new XMLParser();
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_'
+      });
+      
       const data = parser.parse(response.data);
       const entries = Array.isArray(data.feed.entry) ? data.feed.entry : [data.feed.entry];
 
-      interface ArxivEntry {
-        id: string;
-        title: string;
-        summary: string;
-        author: { name: string }[] | { name: string };
-        category?: { '@_term': string }[];
-        published: string;
-      }
-
-      return entries.map((entry: ArxivEntry) => createSerializableResource(
-        entry.id.split('/').pop() || crypto.randomUUID(),
-        {
-          title: entry.title,
-          description: entry.summary,
-          type: 'paper',
-          author: Array.isArray(entry.author) 
-            ? entry.author.map((a) => a.name).join(', ')
-            : entry.author.name,
-          source: 'arXiv',
-          url: entry.id,
-          tags: entry.category?.map((c) => c['@_term']) || [],
-          createdAt: new Date(entry.published)
+      return entries.map((entry: any) => {
+        // Handle different possible category structures
+        let categories: string[] = [];
+        if (Array.isArray(entry.category)) {
+          categories = entry.category.map((c: any) => c['@_term'] || '').filter(Boolean);
+        } else if (entry.category && entry.category['@_term']) {
+          categories = [entry.category['@_term']];
         }
-      ));
+
+        return createSerializableResource(
+          entry.id.split('/').pop() || crypto.randomUUID(),
+          {
+            title: entry.title,
+            description: entry.summary,
+            type: 'paper',
+            author: Array.isArray(entry.author) 
+              ? entry.author.map((a: any) => a.name).join(', ')
+              : entry.author.name,
+            source: 'arXiv',
+            url: entry.id,
+            tags: categories,
+            createdAt: new Date(entry.published)
+          }
+        );
+      });
     } catch (error) {
       console.error('arXiv API Error:', error);
       return [];
