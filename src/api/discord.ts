@@ -1,12 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { db } from '../config/firebase';
+import { doc, setDoc, collection } from 'firebase/firestore';
 
 const DISCORD_API_ENDPOINT = 'https://discord.com/api/v10';
 const BOT_TOKEN = import.meta.env.VITE_DISCORD_BOT_TOKEN;
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 export interface DiscordCommunity {
   id: string;
@@ -20,7 +16,7 @@ export interface DiscordCommunity {
 }
 
 export async function searchDiscordCommunities(query: string): Promise<DiscordCommunity[]> {
-  if (!query || query.length < 2) {
+  if (!query || query.length < 2 || !BOT_TOKEN) {
     return [];
   }
 
@@ -82,12 +78,15 @@ export async function searchDiscordCommunities(query: string): Promise<DiscordCo
 
     return detailedGuilds.filter((guild): guild is DiscordCommunity => guild !== null);
   } catch (error) {
+    // Log error but don't throw
     console.error('Error searching Discord communities:', error);
     return [];
   }
 }
 
 export async function joinDiscordCommunity(communityId: string): Promise<string | null> {
+  if (!BOT_TOKEN) return null;
+
   try {
     const response = await fetch(`${DISCORD_API_ENDPOINT}/guilds/${communityId}/invites`, {
       method: 'POST',
@@ -107,8 +106,19 @@ export async function joinDiscordCommunity(communityId: string): Promise<string 
     }
 
     const invite = await response.json();
+    
+    // Store the join record in Firebase
+    const joinRef = doc(collection(db, 'discord_joins'));
+    await setDoc(joinRef, {
+      communityId,
+      inviteCode: invite.code,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 86400000) // 24 hours from now
+    });
+
     return `https://discord.gg/${invite.code}`;
   } catch (error) {
+    // Log error but don't throw
     console.error('Error creating Discord invite:', error);
     return null;
   }

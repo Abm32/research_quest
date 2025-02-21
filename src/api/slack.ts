@@ -1,12 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { db } from '../config/firebase';
+import { doc, setDoc, collection } from 'firebase/firestore';
 
 const SLACK_API_ENDPOINT = 'https://slack.com/api';
 const BOT_TOKEN = import.meta.env.VITE_SLACK_BOT_TOKEN;
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 export interface SlackCommunity {
   id: string;
@@ -20,7 +16,7 @@ export interface SlackCommunity {
 }
 
 export async function searchSlackCommunities(query: string): Promise<SlackCommunity[]> {
-  if (!query || query.length < 2) {
+  if (!query || query.length < 2 || !BOT_TOKEN) {
     return [];
   }
 
@@ -55,12 +51,15 @@ export async function searchSlackCommunities(query: string): Promise<SlackCommun
       platform: 'slack' as const
     }));
   } catch (error) {
+    // Log error but don't throw
     console.error('Error searching Slack communities:', error);
     return [];
   }
 }
 
 export async function joinSlackCommunity(communityId: string): Promise<string | null> {
+  if (!BOT_TOKEN) return null;
+
   try {
     const response = await fetch(`${SLACK_API_ENDPOINT}/conversations.invite`, {
       method: 'POST',
@@ -80,8 +79,17 @@ export async function joinSlackCommunity(communityId: string): Promise<string | 
       throw new Error(data.error || 'Failed to join channel');
     }
 
+    // Store the join record in Firebase
+    const joinRef = doc(collection(db, 'slack_joins'));
+    await setDoc(joinRef, {
+      communityId,
+      channelId: data.channel?.id,
+      joinedAt: new Date()
+    });
+
     return data.channel?.id || null;
   } catch (error) {
+    // Log error but don't throw
     console.error('Error joining Slack community:', error);
     return null;
   }

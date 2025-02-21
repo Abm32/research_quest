@@ -1,14 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { db } from '../config/firebase';
+import { doc, setDoc, collection } from 'firebase/firestore';
 
 const REDDIT_API_ENDPOINT = 'https://oauth.reddit.com';
 const CLIENT_ID = import.meta.env.VITE_REDDIT_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_REDDIT_CLIENT_SECRET;
 const REFRESH_TOKEN = import.meta.env.VITE_REDDIT_REFRESH_TOKEN;
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 export interface RedditCommunity {
   id: string;
@@ -98,12 +94,12 @@ export async function joinRedditCommunity(communityId: string): Promise<boolean>
       method: 'POST'
     });
 
-    // Store the subscription in Supabase
-    const { error } = await supabase
-      .from('reddit_subscriptions')
-      .insert([{ community_id: communityId }]);
-
-    if (error) throw error;
+    // Store the subscription in Firebase
+    const subscriptionRef = doc(collection(db, 'reddit_subscriptions'));
+    await setDoc(subscriptionRef, {
+      communityId,
+      joinedAt: new Date()
+    });
 
     return true;
   } catch (error) {

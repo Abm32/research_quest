@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export interface User {
   id: string;
   email: string;
@@ -85,4 +87,61 @@ export interface Community {
   searchTerms?: string[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface Resource {
+  id: string;
+  title: string;
+  description: string;
+  type: 'paper' | 'dataset' | 'tool' | 'template' | 'guide' | 'external';
+  author: string;
+  source: string;
+  url?: string;
+  downloadCount: number;
+  rating: number;
+  reviewCount: number;
+  tags: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface CoreApiResponse {
+  id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  downloadUrl: string;
+  topics: string[];
+  publishedDate: string;
+  updatedDate: string;
+}
+
+export interface SemanticScholarResponse {
+  paperId: string;
+  title: string;
+  abstract: string;
+  authors: Array<{ name: string }>;
+  url: string;
+  topics: string[];
+  year: number;
+}
+
+export interface ArxivResponse {
+  id: string;
+  title: string;
+  summary: string;
+  authors: Array<{ name: string }>;
+  link: string;
+  categories: string[];
+  published: string;
+}
+
+export interface DoajResponse {
+  id: string;
+  title: string;
+  abstract: string;
+  authors: Array<{ name: string }>;
+  url: string;
+  subjects: string[];
+  created_date: string;
 }

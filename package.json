@@ -12,8 +12,8 @@
   "dependencies": {
     "@cloudinary/react": "^1.13.0",
     "@cloudinary/url-gen": "^1.18.0",
-    "@supabase/supabase-js": "^2.39.7",
     "axios": "^1.6.7",
+    "fast-xml-parser": "^4.5.3",
     "firebase": "^10.8.0",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.344.0",
