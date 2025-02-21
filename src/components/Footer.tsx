@@ -21,8 +21,8 @@ export default function Footer() {
           </div>
           <div>
             <h3 className="text-xl font-bold">Contact Us</h3>
-            <p className="mt-4 text-gray-400">Email: support@researchhub.com</p>
-            <p className="text-gray-400">Phone: +1 (123) 456-7890</p>
+            <p className="mt-4 text-gray-400">Email: abhimanyurbsa@gmail.com</p>
+            <p className="text-gray-400">Phone: +91 9037084899</p>
           </div>
           <div>
             <h3 className="text-xl font-bold">Follow Us</h3>
