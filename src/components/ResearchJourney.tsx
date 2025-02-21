@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search,
   Pencil,
@@ -8,7 +8,9 @@ import {
   ArrowRight,
   ChevronRight,
   Plus,
-  Loader2
+  Loader2,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { researchService } from '../services/researchService';
@@ -32,6 +34,7 @@ export default function ResearchJourney() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'journey' | 'points' | 'achievements' | 'rewards'>('journey');
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -132,69 +135,71 @@ export default function ResearchJourney() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Tabs */}
-      <div className="flex space-x-4 border-b">
-        <button
-          onClick={() => setActiveTab('journey')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'journey'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-indigo-600'
-          }`}
-        >
-          Research Journey
-        </button>
-        <button
-          onClick={() => setActiveTab('points')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'points'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-indigo-600'
-          }`}
-        >
-          Points
-        </button>
-        <button
-          onClick={() => setActiveTab('achievements')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'achievements'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-indigo-600'
-          }`}
-        >
-          Achievements
-        </button>
-        <button
-          onClick={() => setActiveTab('rewards')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'rewards'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-indigo-600'
-          }`}
-        >
-          Rewards
-        </button>
+      <div className="flex overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 border-b">
+        <div className="flex space-x-4 min-w-full sm:min-w-0">
+          <button
+            onClick={() => setActiveTab('journey')}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
+              activeTab === 'journey'
+                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                : 'text-gray-600 hover:text-indigo-600'
+            }`}
+          >
+            Research Journey
+          </button>
+          <button
+            onClick={() => setActiveTab('points')}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
+              activeTab === 'points'
+                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                : 'text-gray-600 hover:text-indigo-600'
+            }`}
+          >
+            Points
+          </button>
+          <button
+            onClick={() => setActiveTab('achievements')}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
+              activeTab === 'achievements'
+                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                : 'text-gray-600 hover:text-indigo-600'
+            }`}
+          >
+            Achievements
+          </button>
+          <button
+            onClick={() => setActiveTab('rewards')}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
+              activeTab === 'rewards'
+                ? 'text-indigo-600 border-b-2 border-indigo-600'
+                : 'text-gray-600 hover:text-indigo-600'
+            }`}
+          >
+            Rewards
+          </button>
+        </div>
       </div>
 
       {activeTab === 'journey' && (
         <>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 my-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Research Journey</h1>
-              <p className="text-gray-600">Track your progress through each phase of your research</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Research Journey</h1>
+              <p className="text-gray-600 text-sm sm:text-base">Track your progress through each phase of your research</p>
             </div>
             <button
               onClick={() => setShowProjectCreation(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               <span>New Project</span>
             </button>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+            <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-6">
               {error}
             </div>
           )}
@@ -213,12 +218,12 @@ export default function ResearchJourney() {
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     Start Your Research Journey
                   </h2>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-600 mb-4 text-sm">
                     Create your first research project to begin
                   </p>
                   <button
                     onClick={() => setShowProjectCreation(true)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                   >
                     Create Your First Project
                   </button>
@@ -228,25 +233,44 @@ export default function ResearchJourney() {
                   {/* Project Selection */}
                   {projects.length > 1 && (
                     <div className="mb-6">
-                      <select
-                        value={selectedProject?.id}
-                        onChange={(e) => {
-                          const project = projects.find(p => p.id === e.target.value);
-                          if (project) setSelectedProject(project);
-                        }}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      <button
+                        onClick={() => setShowProjectSelector(!showProjectSelector)}
+                        className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm"
                       >
-                        {projects.map((project) => (
-                          <option key={project.id} value={project.id}>
-                            {project.title}
-                          </option>
-                        ))}
-                      </select>
+                        <span>{selectedProject?.title}</span>
+                        <ChevronDown className={`w-5 h-5 transition-transform ${showProjectSelector ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showProjectSelector && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+                          >
+                            {projects.map((project) => (
+                              <button
+                                key={project.id}
+                                onClick={() => {
+                                  setSelectedProject(project);
+                                  setShowProjectSelector(false);
+                                }}
+                                className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors ${
+                                  project.id === selectedProject?.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700'
+                                }`}
+                              >
+                                {project.title}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
 
                   {/* Phases */}
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {phases.map((phase, index) => (
                       <motion.div
                         key={phase.id}
@@ -257,34 +281,34 @@ export default function ResearchJourney() {
                           ${phase.status === 'locked' ? 'opacity-50' : ''}`}
                       >
                         <div 
-                          className={`p-6 cursor-pointer transition-colors
+                          className={`p-4 sm:p-6 cursor-pointer transition-colors
                             ${phase.status !== 'locked' ? 'hover:bg-gray-50' : ''}
                             ${activePhase === phase.id ? 'bg-gray-50' : ''}`}
                           onClick={() => phase.status !== 'locked' && handlePhaseClick(phase.id)}
                         >
                           <div className="flex items-start space-x-4">
-                            <div className={`p-3 rounded-lg
+                            <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0
                               ${phase.status === 'completed' ? 'bg-green-100 text-green-600' :
                                 phase.status === 'in-progress' ? 'bg-indigo-100 text-indigo-600' :
                                 'bg-gray-100 text-gray-600'}`}
                             >
-                              <phase.icon className="w-6 h-6" />
+                              <phase.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-gray-900">{phase.title}</h3>
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{phase.title}</h3>
                                 {phase.status === 'completed' && (
-                                  <span className="px-3 py-1 bg-green-100 text-green-600 rounded-full text-sm">
+                                  <span className="px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs">
                                     Completed
                                   </span>
                                 )}
                                 {phase.status === 'in-progress' && (
-                                  <span className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-sm">
+                                  <span className="px-2 py-1 bg-indigo-100 text-indigo-600 rounded-full text-xs">
                                     In Progress
                                   </span>
                                 )}
                               </div>
-                              <p className="mt-1 text-gray-600">{phase.description}</p>
+                              <p className="mt-1 text-sm text-gray-600 line-clamp-2">{phase.description}</p>
                               <div className="mt-4">
                                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                                   <div
@@ -320,7 +344,7 @@ export default function ResearchJourney() {
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="border-t border-gray-100 p-6"
+                            className="border-t border-gray-100 p-4 sm:p-6"
                           >
                             <phase.component projectId={selectedProject.id} />
                             <TaskTracking projectId={selectedProject.id} />
