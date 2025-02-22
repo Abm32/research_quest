@@ -38,6 +38,35 @@ A modern platform for researchers to collaborate, share knowledge, and track the
 - Version tracking
 - AI-powered resource recommendations
 
+## Research Data APIs
+
+The platform integrates with multiple research databases and APIs to provide comprehensive access to academic resources:
+
+1. **CORE API**
+   - Access to global research papers
+   - Full-text research content
+   - Metadata and abstracts
+   - API Key Required: Yes
+   - Documentation: https://core.ac.uk/services/api/
+
+2. **DOAJ (Directory of Open Access Journals)**
+   - Open access scientific and scholarly journals
+   - Peer-reviewed content
+   - API Key Required: Optional
+   - Documentation: https://doaj.org/api/v2/docs
+
+3. **arXiv API**
+   - Pre-print research papers
+   - Scientific articles
+   - API Key Required: No
+   - Documentation: https://arxiv.org/help/api
+
+4. **Europe PMC**
+   - Life science literature
+   - Biomedical research papers
+   - API Key Required: No
+   - Documentation: https://europepmc.org/RestfulWebService
+
 ## Tech Stack
 
 - **Frontend:**
@@ -88,6 +117,7 @@ A modern platform for researchers to collaborate, share knowledge, and track the
    VITE_SLACK_BOT_TOKEN=your_slack_bot_token
    VITE_REDDIT_CLIENT_ID=your_reddit_client_id
    VITE_REDDIT_CLIENT_SECRET=your_reddit_client_secret
+   VITE_CORE_API_KEY=your_core_api_key
    ```
 
 4. Create a Firebase project and add your configuration to `src/config/firebase.ts`:
@@ -161,6 +191,15 @@ src/
 - `AchievementsShowcase.tsx`: User achievements
 - `RewardsStore.tsx`: Rewards redemption
 
+## Mobile Optimization
+
+The platform is fully optimized for mobile devices with:
+- Responsive layouts
+- Touch-friendly interfaces
+- Adaptive content display
+- Mobile-first design approach
+- Optimized performance
+
 ## Security
 
 The platform uses comprehensive security rules across Firebase and Supabase:
@@ -190,3 +229,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - UI animations by [Framer Motion](https://www.framer.com/motion/)
 - Styling with [Tailwind CSS](https://tailwindcss.com/)
 - AI capabilities powered by [HuggingFace](https://huggingface.co/)
+- Research data from CORE, DOAJ, arXiv, and Europe PMC
