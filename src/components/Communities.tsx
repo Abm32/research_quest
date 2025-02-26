@@ -27,7 +27,7 @@ import { searchRedditCommunities } from '../api/reddit';
 import type { Community } from '../types';
 import axios from 'axios';
 
-export default function Communities() {
+function Communities() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -50,6 +50,7 @@ export default function Communities() {
   });
 
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) {
@@ -352,7 +353,7 @@ export default function Communities() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={isAIMode ? "Ask AI to find communities..." : "Search communities..."}
-                className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
+                className={`w-full pl-10 pr-12 py-2 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
                   isAIMode 
                     ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
                     : 'border-gray-300 focus:ring-indigo-500'
@@ -370,21 +371,32 @@ export default function Communities() {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-2">
-                <Filter className="w-5 h-5" />
-                <span>Filters</span>
-                {(selectedPlatform || selectedTopic || sortBy !== 'popular') && (
-                  <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
-                    Active
-                  </span>
-                )}
-              </div>
-              <ChevronDown className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center justify-between px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center space-x-2">
+                  <Filter className="w-5 h-5" />
+                  <span>Filters</span>
+                  {(selectedPlatform || selectedTopic || sortBy !== 'popular') && (
+                    <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
+                      Active
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`w-5 h-5 ml-2 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'popular' | 'recent')}
+                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="popular">Most Popular</option>
+                <option value="recent">Most Recent</option>
+              </select>
+            </div>
 
             <AnimatePresence>
               {showFilters && (
@@ -418,15 +430,6 @@ export default function Communities() {
                       ))}
                     </select>
                   )}
-
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="popular">Most Popular</option>
-                    <option value="recent">Most Recent</option>
-                  </select>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -626,3 +629,5 @@ export default function Communities() {
     </div>
   );
 }
+
+export default Communities;

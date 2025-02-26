@@ -23,7 +23,9 @@ import {
   Globe,
   AlertCircle,
   ChevronDown,
-  X
+  X,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { resourceService } from '../services/resourceService';
@@ -143,6 +145,45 @@ export default function Resources() {
   };
 
   const ResourceCard = ({ resource }: { resource: Resource }) => {
+    const { user } = useAuth();
+    const [isSaved, setIsSaved] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+      const checkIfSaved = async () => {
+        if (!user) return;
+        try {
+          const savedResources = await resourceService.getSavedResources(user.uid);
+          setIsSaved(savedResources.some(sr => sr.resourceId === resource.id));
+        } catch (error) {
+          console.error('Error checking saved status:', error);
+        }
+      };
+      checkIfSaved();
+    }, [user, resource.id]);
+
+    const handleBookmark = async () => {
+      if (!user) return;
+      try {
+        setSaving(true);
+        if (isSaved) {
+          // Find the saved resource ID and remove it
+          const savedResources = await resourceService.getSavedResources(user.uid);
+          const savedResource = savedResources.find(sr => sr.resourceId === resource.id);
+          if (savedResource) {
+            await resourceService.unsaveResource(savedResource.id);
+          }
+        } else {
+          await resourceService.saveResource(user.uid, resource.id);
+        }
+        setIsSaved(!isSaved);
+      } catch (error) {
+        console.error('Error toggling bookmark:', error);
+      } finally {
+        setSaving(false);
+      }
+    };
+
     const Icon = getResourceIcon(resource.type);
     
     return (
@@ -197,6 +238,23 @@ export default function Resources() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {user && (
+                <button
+                  onClick={handleBookmark}
+                  disabled={saving}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isSaved 
+                      ? 'text-indigo-600 hover:bg-indigo-50' 
+                      : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  {isSaved ? (
+                    <BookmarkCheck className="w-4 h-4" />
+                  ) : (
+                    <Bookmark className="w-4 h-4" />
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => handleShare(resource)}
                 className="p-2 text-gray-600 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
@@ -244,17 +302,6 @@ export default function Resources() {
         </button>
       </div>
 
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center text-sm"
-        >
-          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-          {error}
-        </motion.div>
-      )}
-
       <div className="bg-white rounded-xl shadow-sm mb-6">
         <div className="p-4">
           <div className="flex flex-col space-y-4">
@@ -265,7 +312,7 @@ export default function Resources() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={isAIMode ? "Ask AI to find resources..." : "Search resources..."}
-                className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
+                className={`w-full pl-10 pr-12 py-2 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
                   isAIMode 
                     ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
                     : 'border-gray-300 focus:ring-indigo-500'
@@ -283,21 +330,40 @@ export default function Resources() {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+              >
                 <Filter className="w-5 h-5" />
-                <span>Filters & View</span>
+                <span className="ml-2">Filters</span>
                 {(selectedType || selectedTags.length > 0 || sortBy !== 'downloads') && (
-                  <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
+                  <span className="ml-2 bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
                     Active
                   </span>
                 )}
-              </div>
-              <ChevronDown className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
+                <ChevronDown className={`ml-2 w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </button>
+
+              <select
+                value={view}
+                onChange={(e) => setView(e.target.value as 'grid' | 'list')}
+                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="grid">Grid View</option>
+                <option value="list">List View</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'downloads' | 'rating')}
+                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="downloads">Most Downloaded</option>
+                <option value="rating">Highest Rated</option>
+                <option value="date">Most Recent</option>
+              </select>
+            </div>
 
             <AnimatePresence>
               {showFilters && (
@@ -307,29 +373,6 @@ export default function Resources() {
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-4 pt-4"
                 >
-                  <div className="flex items-center justify-end space-x-2 mb-4">
-                    <button
-                      onClick={() => setView('grid')}
-                      className={`p-2 rounded-lg ${
-                        view === 'grid'
-                          ? 'bg-indigo-100 text-indigo-600'
-                          : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                      }`}
-                    >
-                      <Grid className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setView('list')}
-                      className={`p-2 rounded-lg ${
-                        view === 'list'
-                          ? 'bg-indigo-100 text-indigo-600'
-                          : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                      }`}
-                    >
-                      <List className="w-5 h-5" />
-                    </button>
-                  </div>
-
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
@@ -342,16 +385,6 @@ export default function Resources() {
                     <option value="template">Templates</option>
                     <option value="guide">Guides</option>
                     <option value="external">External Links</option>
-                  </select>
-
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'date' | 'downloads' | 'rating')}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  >
-                    <option value="date">Newest First</option>
-                    <option value="downloads">Most Downloaded</option>
-                    <option value="rating">Highest Rated</option>
                   </select>
 
                   <button

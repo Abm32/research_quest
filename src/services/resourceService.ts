@@ -1,20 +1,23 @@
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
-import type { Resource } from '../types';
+import type { Resource, ResourceStats, SavedResource } from '../types';
 import { db } from '../config/firebase';
 import { 
   collection, 
-  query, 
-  where, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDoc,
   getDocs,
-  addDoc,
-  updateDoc,
-  doc,
-  increment,
-  serverTimestamp,
+  query,
+  where,
   orderBy,
   limit as firestoreLimit,
-  Timestamp 
+  Timestamp,
+  increment,
+  arrayUnion,
+  serverTimestamp
 } from 'firebase/firestore';
 
 // Helper functions
@@ -61,6 +64,7 @@ interface ResourceData {
   tags?: unknown[];
   createdAt?: Date | Timestamp;
   updatedAt?: Date | Timestamp;
+  userId?: string;
 }
 
 const createSerializableResource = (id: string, data: ResourceData): Resource => ({
@@ -76,7 +80,8 @@ const createSerializableResource = (id: string, data: ResourceData): Resource =>
   reviewCount: typeof data.reviewCount === 'number' ? data.reviewCount : 0,
   tags: Array.isArray(data.tags) ? data.tags.map(toString).filter(Boolean) : [],
   createdAt: Timestamp.fromDate(toDate(data.createdAt)),
-  updatedAt: Timestamp.fromDate(toDate(data.updatedAt))
+  updatedAt: Timestamp.fromDate(toDate(data.updatedAt)),
+  userId: toString(data.userId || '')
 });
 
 export const resourceService = {
@@ -137,6 +142,7 @@ export const resourceService = {
         downloadCount: 0,
         rating: 0,
         reviewCount: 0,
+        status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -177,6 +183,131 @@ export const resourceService = {
       });
     } catch (error) {
       console.error('Error adding rating:', error);
+    }
+  },
+
+  // Bookmarking functionality
+  async saveResource(userId: string, resourceId: string, notes?: string): Promise<string> {
+    try {
+      const docRef = await addDoc(collection(db, 'saved_resources'), {
+        userId,
+        resourceId,
+        notes,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error saving resource:', error);
+      throw error;
+    }
+  },
+
+  async unsaveResource(savedResourceId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'saved_resources', savedResourceId));
+    } catch (error) {
+      console.error('Error removing saved resource:', error);
+      throw error;
+    }
+  },
+
+  async getSavedResources(userId: string): Promise<SavedResource[]> {
+    try {
+      const q = query(
+        collection(db, 'saved_resources'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as SavedResource[];
+    } catch (error) {
+      console.error('Error fetching saved resources:', error);
+      return [];
+    }
+  },
+
+  // Admin functionality
+  async getAdminResources(status: 'pending' | 'approved' | 'rejected'): Promise<Resource[]> {
+    try {
+      const q = query(
+        collection(db, 'resources'),
+        where('status', '==', status),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Resource[];
+    } catch (error) {
+      console.error('Error fetching admin resources:', error);
+      return [];
+    }
+  },
+
+  async updateResourceStatus(resourceId: string, status: 'approved' | 'rejected'): Promise<void> {
+    try {
+      const resourceRef = doc(db, 'resources', resourceId);
+      await updateDoc(resourceRef, {
+        status,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating resource status:', error);
+      throw error;
+    }
+  },
+
+  async updateResource(resourceId: string, updates: Partial<Resource>): Promise<void> {
+    try {
+      const resourceRef = doc(db, 'resources', resourceId);
+      await updateDoc(resourceRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating resource:', error);
+      throw error;
+    }
+  },
+
+  async deleteResource(resourceId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'resources', resourceId));
+    } catch (error) {
+      console.error('Error deleting resource:', error);
+      throw error;
+    }
+  },
+
+  async getResourceStats(): Promise<ResourceStats> {
+    try {
+      const [totalSnapshot, pendingSnapshot, todaySnapshot] = await Promise.all([
+        getDocs(collection(db, 'resources')),
+        getDocs(query(collection(db, 'resources'), where('status', '==', 'pending'))),
+        getDocs(query(
+          collection(db, 'resources'),
+          where('updatedAt', '>=', new Date(new Date().setHours(0, 0, 0, 0)))
+        ))
+      ]);
+
+      return {
+        total: totalSnapshot.size,
+        pending: pendingSnapshot.size,
+        downloadsToday: todaySnapshot.docs.reduce((sum, doc) => sum + doc.data().downloadCount, 0),
+        activeUsers: new Set(todaySnapshot.docs.map(doc => doc.data().userId)).size
+      };
+    } catch (error) {
+      console.error('Error fetching resource stats:', error);
+      return {
+        total: 0,
+        pending: 0,
+        downloadsToday: 0,
+        activeUsers: 0
+      };
     }
   },
 
@@ -232,7 +363,6 @@ export const resourceService = {
     if (!query) return [];
     
     try {
-      // Using the correct DOAJ API endpoint
       const response = await axios.get(`https://doaj.org/api/v2/search/articles/${encodeURIComponent(query)}`, {
         params: {
           page: 1,
@@ -325,7 +455,6 @@ export const resourceService = {
       const entries = Array.isArray(data.feed.entry) ? data.feed.entry : [data.feed.entry];
 
       return entries.map((entry: any) => {
-        // Handle different possible category structures
         let categories: string[] = [];
         if (Array.isArray(entry.category)) {
           categories = entry.category.map((c: any) => c['@_term'] || '').filter(Boolean);

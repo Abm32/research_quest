@@ -101,8 +101,25 @@ export interface Resource {
   rating: number;
   reviewCount: number;
   tags: string[];
+  status?: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  userId: string;
+}
+
+export interface ResourceStats {
+  total: number;
+  pending: number;
+  downloadsToday: number;
+  activeUsers: number;
+}
+
+export interface SavedResource {
+  id: string;
+  userId: string;
+  resourceId: string;
+  notes?: string;
+  createdAt: Timestamp;
 }
 
 export interface CoreApiResponse {
