@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { db, auth } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  updateDoc,
+  Timestamp,
+  limit,
+  orderBy,
+  arrayUnion,
+  addDoc,
+  increment,
+  serverTimestamp
+} from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { 
   Award, 
@@ -31,38 +47,90 @@ import {
 } from 'lucide-react';
 import type { Community } from '../types';
 
+// Current date and user login data
+const CURRENT_DATE_TIME = "2025-02-26 14:52:08";
+const CURRENT_USER_LOGIN = "Abm32";
+
 interface UserProfile {
   role: 'Student' | 'Researcher' | 'Mentor' | 'Administrator';
   interests: string[];
   expertise: string[];
   bio: string;
   photoURL?: string;
-  updatedAt?: Date;
+  updatedAt?: Date | Timestamp;
   location?: string;
   email?: string;
   website?: string;
-  joined?: Date;
+  joined?: Date | Timestamp;
+  last_login?: Date | Timestamp;
+  profile_completion?: number;
+}
+
+interface Achievement {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  earned_date: Date | Timestamp;
+  icon_type: 'Star' | 'Award' | 'GraduationCap' | 'Trophy';
+  color_theme: 'amber' | 'blue' | 'green' | 'indigo' | 'purple';
+  user_id: string;
+}
+
+interface ResearchActivityItem {
+  id: string;
+  type: 'project' | 'publication' | 'achievement' | 'community';
+  title: string;
+  description?: string;
+  timestamp: Date | Timestamp;
+  icon_type: string;
+  user_id: string;
+}
+
+interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  awarded_date: Date | Timestamp;
+  user_id: string;
+  badge_type: 'bronze' | 'silver' | 'gold' | 'platinum';
+}
+
+interface UserStats {
+  publications: number;
+  communities: number;
+  badges: number;
+  projects: number;
+  loading: boolean;
 }
 
 const CLOUDINARY_UPLOAD_PRESET = 'research_quest';
 const CLOUDINARY_CLOUD_NAME = 'dsahhcgq6';
 const CLOUDINARY_API_KEY = '259372399271311';
 
-const ProfileStat: React.FC<{ icon: React.ReactNode, label: string, value: string | number }> = ({ 
-  icon, 
-  label, 
-  value 
-}) => (
+// Memoized ProfileStat component for better performance
+const ProfileStat: React.FC<{ 
+  icon: React.ReactNode; 
+  label: string; 
+  value: string | number;
+  isLoading?: boolean;
+}> = memo(({ icon, label, value, isLoading = false }) => (
   <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100">
     <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full mb-2">
       {icon}
     </div>
-    <div className="text-2xl font-bold text-gray-800">{value}</div>
+    {isLoading ? (
+      <div className="h-7 w-16 bg-gray-200 rounded animate-pulse mb-1"></div>
+    ) : (
+      <div className="text-2xl font-bold text-gray-800">{value}</div>
+    )}
     <div className="text-sm text-gray-500">{label}</div>
   </div>
-);
+));
+ProfileStat.displayName = 'ProfileStat';
 
-const JoinedCommunitiesSection = () => {
+// JoinedCommunitiesSection with proper Firebase integration
+const JoinedCommunitiesSection = memo(() => {
   const { user } = useAuth();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +140,19 @@ const JoinedCommunitiesSection = () => {
 
     const fetchJoinedCommunities = async () => {
       try {
+        // Get communities that the user is a member of
         const q = query(
           collection(db, 'communities'),
-          where('members', 'array-contains', user.uid)
+          where('members', 'array-contains', user.uid),
+          limit(4)  // Limit to 4 for better performance
         );
+        
         const querySnapshot = await getDocs(q);
         const joinedCommunities = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Community[];
+        
         setCommunities(joinedCommunities);
       } catch (error) {
         console.error('Error fetching joined communities:', error);
@@ -93,7 +165,25 @@ const JoinedCommunitiesSection = () => {
   }, [user]);
 
   if (loading) {
-    return <div className="animate-pulse h-32 bg-gray-100 rounded-xl"></div>;
+    return (
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-semibold text-gray-800">Your Research Communities</h2>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((index) => (
+              <div key={index} className="h-24 bg-gray-100 rounded-lg animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -131,7 +221,7 @@ const JoinedCommunitiesSection = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {communities.slice(0, 4).map((community) => (
+            {communities.map((community) => (
               <div
                 key={community.id}
                 className="flex items-center space-x-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all duration-200"
@@ -141,7 +231,7 @@ const JoinedCommunitiesSection = () => {
                 </div>
                 <div className="flex-grow">
                   <h3 className="font-medium text-gray-900">{community.name}</h3>
-                  <p className="text-sm text-gray-600">{community.member_count} members</p>
+                  <p className="text-sm text-gray-600">{community.member_count || 0} members</p>
                 </div>
                 <Link
                   to={`/communities/${community.id}/chat`}
@@ -157,71 +247,443 @@ const JoinedCommunitiesSection = () => {
       </div>
     </motion.div>
   );
-};
+});
+JoinedCommunitiesSection.displayName = 'JoinedCommunitiesSection';
 
-const ResearchActivity = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0, transition: { delay: 0.2 } }}
-    className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
-  >
-    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-gray-100">
-      <div className="flex items-center space-x-2">
-        <Activity className="w-5 h-5 text-emerald-600" />
-        <h2 className="text-lg font-semibold text-gray-800">Research Activity</h2>
-      </div>
-    </div>
+// ResearchActivity with Firebase integration
+const ResearchActivity = memo(() => {
+  const { user } = useAuth();
+  const [activities, setActivities] = useState<ResearchActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchActivities = async () => {
+      try {
+        const activityRef = collection(db, 'user_activities');
+        const q = query(
+          activityRef,
+          where('user_id', '==', user.uid),
+          orderBy('timestamp', 'desc'),
+          limit(3)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          // Create default activities if none exist
+          const defaultActivities = [
+            {
+              type: 'project',
+              title: 'Started new research project',
+              description: 'Initial setup of research methodology',
+              timestamp: serverTimestamp(),
+              user_id: user.uid,
+              icon_type: 'ClipboardList'
+            },
+            {
+              type: 'achievement',
+              title: 'Earned first badge',
+              description: 'Profile completion badge earned',
+              timestamp: serverTimestamp(),
+              user_id: user.uid,
+              icon_type: 'Award'
+            }
+          ];
+          
+          const activityPromises = defaultActivities.map(activity => 
+            addDoc(collection(db, 'user_activities'), activity)
+          );
+          
+          const newActivityRefs = await Promise.all(activityPromises);
+          
+          // Create activities data with IDs
+          const newActivities = defaultActivities.map((activity, index) => ({
+            id: newActivityRefs[index].id,
+            ...activity
+          }));
+          
+          setActivities(newActivities as ResearchActivityItem[]);
+        } else {
+          const fetchedActivities = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as ResearchActivityItem[];
+          
+          setActivities(fetchedActivities);
+        }
+      } catch (error) {
+        console.error('Error fetching research activities:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [user]);
+
+  // Icon mapping for activity types
+  const getActivityIcon = useCallback((iconType: string) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      'ClipboardList': <ClipboardList className="h-4 w-4 text-indigo-600" />,
+      'Award': <Award className="h-4 w-4 text-amber-600" />,
+      'BookOpen': <BookOpen className="h-4 w-4 text-blue-600" />,
+      'Users': <Users className="h-4 w-4 text-purple-600" />,
+      'Trophy': <Trophy className="h-4 w-4 text-green-600" />,
+      'CheckCircle2': <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+    };
+    return iconMap[iconType] || <Activity className="h-4 w-4 text-gray-600" />;
+  }, []);
+
+  // Helper to format timestamps
+  const formatDate = useCallback((timestamp: Timestamp | Date) => {
+    if (!timestamp) return 'Just now';
     
-    <div className="p-6">
-      <div className="space-y-4">
-        <div className="flex items-start">
-          <div className="flex-shrink-0 mt-1">
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            </div>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-900">Completed literature review for quantum computing research</p>
-            <p className="text-xs text-gray-500 mt-1">2 days ago</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start">
-          <div className="flex-shrink-0 mt-1">
-            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              <BookOpen className="h-4 w-4 text-indigo-600" />
-            </div>
-          </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-900">Started new research project on machine learning ethics</p>
-            <p className="text-xs text-gray-500 mt-1">1 week ago</p>
+    const date = timestamp instanceof Timestamp 
+      ? timestamp.toDate() 
+      : new Date(timestamp);
+      
+    const now = new Date();
+    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    return date.toLocaleDateString();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center space-x-2">
+            <Activity className="w-5 h-5 text-emerald-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Research Activity</h2>
           </div>
         </div>
-        
-        <div className="flex items-start">
-          <div className="flex-shrink-0 mt-1">
-            <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-              <Award className="h-4 w-4 text-amber-600" />
-            </div>
+        <div className="p-6">
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-start">
+                <div className="h-8 w-8 rounded-full bg-gray-100 animate-pulse"></div>
+                <div className="ml-4 flex-grow">
+                  <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse mb-2"></div>
+                  <div className="h-3 bg-gray-100 rounded w-1/4 animate-pulse"></div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-900">Earned Research Methodology badge</p>
-            <p className="text-xs text-gray-500 mt-1">2 weeks ago</p>
-          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0, transition: { delay: 0.2 } }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
+    >
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center space-x-2">
+          <Activity className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-lg font-semibold text-gray-800">Research Activity</h2>
         </div>
       </div>
       
-      <div className="mt-6">
-        <Link
-          to="/activity"
-          className="w-full py-2 flex justify-center items-center text-sm text-indigo-600 hover:text-indigo-800 border border-dashed border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
-        >
-          View Full Activity History
-        </Link>
+      <div className="p-6">
+        {activities.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-gray-500">No activity recorded yet</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activities.map((activity) => (
+              <div key={activity.id} className="flex items-start">
+                <div className="flex-shrink-0 mt-1">
+                  <div className={`h-8 w-8 rounded-full bg-${activity.type === 'achievement' ? 'amber' : activity.type === 'project' ? 'indigo' : 'green'}-100 flex items-center justify-center`}>
+                    {getActivityIcon(activity.icon_type)}
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                  {activity.description && (
+                    <p className="text-xs text-gray-600 mt-0.5">{activity.description}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formatDate(activity.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="mt-6">
+          <Link
+            to="/activity"
+            className="w-full py-2 flex justify-center items-center text-sm text-indigo-600 hover:text-indigo-800 border border-dashed border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            View Full Activity History
+          </Link>
+        </div>
       </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+});
+ResearchActivity.displayName = 'ResearchActivity';
+
+// Memoized AchievementsSection component
+const AchievementsSection = memo(() => {
+  const { user } = useAuth();
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchAchievements = async () => {
+      try {
+        const achievementsRef = collection(db, 'user_achievements');
+        const achievementsQuery = query(
+          achievementsRef,
+          where('user_id', '==', user.uid),
+          orderBy('earned_date', 'desc'),
+          limit(3)
+        );
+        
+        const snapshot = await getDocs(achievementsQuery);
+        
+        if (snapshot.empty) {
+          // Create default achievements for new users
+          const defaultAchievements = [
+            {
+              title: 'Research Pioneer',
+              category: 'Platform',
+              description: 'Joined the Research Quest platform',
+              earned_date: serverTimestamp(),
+              user_id: user.uid,
+              icon_type: 'Star',
+              color_theme: 'amber'
+            },
+            {
+              title: 'First Steps',
+              category: 'Research',
+              description: 'Completed profile setup',
+              earned_date: serverTimestamp(),
+              user_id: user.uid,
+              icon_type: 'Award',
+              color_theme: 'blue'
+            },
+            {
+              title: 'Knowledge Seeker',
+              category: 'Learning',
+              description: 'Accessed learning resources',
+              earned_date: serverTimestamp(),
+              user_id: user.uid,
+              icon_type: 'GraduationCap',
+              color_theme: 'green'
+            }
+          ];
+          
+          const achievementPromises = defaultAchievements.map(achievement => 
+            addDoc(collection(db, 'user_achievements'), achievement)
+          );
+          
+          const newAchievementRefs = await Promise.all(achievementPromises);
+          const newAchievements = defaultAchievements.map((achievement, index) => ({
+            id: newAchievementRefs[index].id,
+            ...achievement
+          }));
+          
+          setAchievements(newAchievements as Achievement[]);
+        } else {
+          const fetchedAchievements = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Achievement[];
+          
+          setAchievements(fetchedAchievements);
+        }
+      } catch (error) {
+        console.error('Error fetching achievements:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAchievements();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center space-x-2">
+            <Trophy className="w-5 h-5 text-amber-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Research Achievements</h2>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
+    >
+      <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center space-x-2">
+          <Trophy className="w-5 h-5 text-amber-600" />
+          <h2 className="text-lg font-semibold text-gray-800">Research Achievements</h2>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        {achievements.length > 0 ? (
+          <div className="space-y-4">
+            {achievements.map((achievement) => {
+              // Dynamic icon based on achievement type
+              const getIcon = () => {
+                switch (achievement.icon_type) {
+                  case 'Star': return <Star className="h-5 w-5 text-amber-700" />;
+                  case 'Award': return <Award className="h-5 w-5 text-blue-700" />;
+                  case 'GraduationCap': return <GraduationCap className="h-5 w-5 text-green-700" />;
+                  case 'Trophy': return <Trophy className="h-5 w-5 text-purple-700" />;
+                  default: return <Star className="h-5 w-5 text-amber-700" />;
+                }
+              };
+              
+              // Dynamic gradient based on color theme
+              const getBgGradient = () => {
+                switch (achievement.color_theme) {
+                  case 'amber': return 'from-amber-50 to-amber-100';
+                  case 'blue': return 'from-blue-50 to-blue-100';
+                  case 'green': return 'from-green-50 to-green-100';
+                  case 'indigo': return 'from-indigo-50 to-indigo-100';
+                  case 'purple': return 'from-purple-50 to-purple-100';
+                  default: return 'from-amber-50 to-amber-100';
+                }
+              };
+              
+              // Dynamic icon background color
+              const getIconBg = () => {
+                switch (achievement.color_theme) {
+                  case 'amber': return 'bg-amber-200';
+                  case 'blue': return 'bg-blue-200';
+                  case 'green': return 'bg-green-200';
+                  case 'indigo': return 'bg-indigo-200';
+                  case 'purple': return 'bg-purple-200';
+                  default: return 'bg-amber-200';
+                }
+              };
+              
+              return (
+                <div 
+                  key={achievement.id} 
+                  className={`flex items-center space-x-3 p-3 bg-gradient-to-r ${getBgGradient()} rounded-lg`}
+                >
+                  <div className={`${getIconBg()} p-2 rounded-full`}>
+                    {getIcon()}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900">{achievement.title}</h3>
+                    <p className="text-sm text-gray-600">{achievement.category}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Trophy className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500 mb-4">No achievements earned yet</p>
+            <Link
+              to="/resources"
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+            >
+              Explore Resources to Earn Achievements
+            </Link>
+          </div>
+        )}
+        
+        <div className="mt-6 text-center">
+          <Link
+            to="/achievements"
+            className="inline-block px-4 py-2 text-sm text-amber-700 hover:text-amber-800 font-medium"
+          >
+            View All Achievements
+          </Link>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+AchievementsSection.displayName = 'AchievementsSection';
+
+// Memoized AccountInfoCard component
+const AccountInfoCard = memo(({ profile }: { profile: UserProfile }) => {
+  const formatJoinedDate = useCallback((timestamp?: Timestamp | Date) => {
+    if (!timestamp) return 'Recently';
+    const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0, transition: { delay: 0.4 } }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
+    >
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">Account Info</h2>
+          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+            {CURRENT_USER_LOGIN}
+          </span>
+        </div>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+          <span className="text-gray-600">Last login</span>
+          <span className="text-gray-900 font-medium">{CURRENT_DATE_TIME}</span>
+        </div>
+        <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+          <span className="text-gray-600">Member since</span>
+          <span className="text-gray-900 font-medium">{formatJoinedDate(profile.joined)}</span>
+        </div>
+        <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+          <span className="text-gray-600">Profile completion</span>
+          <div className="flex items-center">
+            <div className="w-32 bg-gray-200 rounded-full h-2 mr-2">
+              <div 
+                className="bg-indigo-600 h-2 rounded-full" 
+                style={{ width: `${profile.profile_completion || 0}%` }}
+              />
+            </div>
+            <span className="text-gray-900 font-medium">{profile.profile_completion || 0}%</span>
+          </div>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Account type</span>
+          <span className="text-gray-900 font-medium">{profile.role}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+AccountInfoCard.displayName = 'AccountInfoCard';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -243,10 +705,99 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   
-  // Current date and user login provided
-  const currentDateTime = "2025-02-26 13:20:19";
-  const currentUserLogin = "Abm32";
+  // User stats from Firebase
+  const [stats, setStats] = useState<UserStats>({
+    publications: 0,
+    communities: 0,
+    badges: 0,
+    projects: 0,
+    loading: true
+  });
 
+  // Calculate profile completion percentage
+  const calculateProfileCompletion = useCallback((profile: UserProfile): number => {
+    let completionScore = 0;
+    const totalFields = 7;  // Total fields counting toward completion
+    
+    if (profile.photoURL) completionScore += 1;
+    if (profile.bio && profile.bio.length > 10) completionScore += 1;
+    if (profile.interests && profile.interests.length > 0) completionScore += 1;
+    if (profile.expertise && profile.expertise.length > 0) completionScore += 1;
+    if (profile.location) completionScore += 1;
+    if (profile.email) completionScore += 1;
+    if (profile.website) completionScore += 1;
+    
+    return Math.round((completionScore / totalFields) * 100);
+  }, []);
+
+  // Fetch user stats from Firebase
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchUserStats = async () => {
+      try {
+        // Get publication count
+        const publicationsRef = collection(db, 'publications');
+        const publicationsQuery = query(publicationsRef, where('author_id', '==', user.uid));
+        const publicationsSnapshot = await getDocs(publicationsQuery);
+        
+        // Get communities count
+        const communitiesRef = collection(db, 'communities');
+        const communitiesQuery = query(communitiesRef, where('members', 'array-contains', user.uid));
+        const communitiesSnapshot = await getDocs(communitiesQuery);
+        
+        // Get badges
+        const badgesRef = collection(db, 'user_badges');
+        const badgesQuery = query(badgesRef, where('user_id', '==', user.uid));
+        let badgesSnapshot = await getDocs(badgesQuery);
+        
+        // Get projects count
+        const projectsRef = collection(db, 'research_projects');
+        const projectsQuery = query(projectsRef, where('members', 'array-contains', user.uid));
+        const projectsSnapshot = await getDocs(projectsQuery);
+        
+        // If no badges exist, create default badges
+        if (badgesSnapshot.empty) {
+          // Create default badges for new users
+          const defaultBadges = [
+            { 
+              name: 'Profile Creator',
+              description: 'Created a profile on Research Quest',
+              awarded_date: serverTimestamp(),
+              user_id: user.uid,
+              badge_type: 'bronze'
+            }
+          ];
+          
+          const badgePromises = defaultBadges.map(badge => 
+            addDoc(collection(db, 'user_badges'), badge)
+          );
+          
+          await Promise.all(badgePromises);
+          
+          // Re-fetch badges count
+          badgesSnapshot = await getDocs(badgesQuery);
+        }
+        
+        // Update stats
+        setStats({
+          publications: publicationsSnapshot.size,
+          communities: communitiesSnapshot.size,
+          badges: badgesSnapshot.size,
+          projects: projectsSnapshot.size,
+          loading: false
+        });
+        
+      } catch (error) {
+        console.error('Error fetching user stats:', error);
+        setStats(prev => ({ ...prev, loading: false }));
+      }
+    };
+    
+    fetchUserStats();
+  }, [user]);
+
+  // Fetch user profile
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -259,17 +810,27 @@ export default function Profile() {
         const docSnap = await getDoc(userRef);
 
         if (docSnap.exists()) {
-          const data = docSnap.data() as UserProfile;
+          const userData = docSnap.data() as UserProfile;
+          const profileCompletionScore = calculateProfileCompletion(userData);
+          
           setProfile({
-            role: data.role || 'Student',
-            interests: data.interests || [],
-            expertise: data.expertise || [],
-            bio: data.bio || '',
-            photoURL: data.photoURL,
-            location: data.location || '',
-            email: data.email || user.email || '',
-            website: data.website || '',
-            joined: data.joined || new Date(),
+            role: userData.role || 'Student',
+            interests: userData.interests || [],
+            expertise: userData.expertise || [],
+            bio: userData.bio || '',
+            photoURL: userData.photoURL,
+            updatedAt: userData.updatedAt,
+            location: userData.location || '',
+            email: userData.email || user.email || '',
+            website: userData.website || '',
+            joined: userData.joined || serverTimestamp(),
+            last_login: serverTimestamp(),
+            profile_completion: profileCompletionScore,
+          });
+          
+          // Update last login time
+          await updateDoc(userRef, {
+            last_login: serverTimestamp()
           });
         } else {
           const initialProfile: UserProfile = {
@@ -281,8 +842,10 @@ export default function Profile() {
             location: '',
             email: user.email || '',
             website: '',
-            joined: new Date(),
-            updatedAt: new Date(),
+            joined: serverTimestamp(),
+            last_login: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            profile_completion: 20,  // Base completion percentage for new profile
           };
           await setDoc(userRef, initialProfile);
           setProfile(initialProfile);
@@ -296,11 +859,11 @@ export default function Profile() {
     };
 
     fetchProfile();
-  }, [user, navigate]);
+  }, [user, navigate, calculateProfileCompletion]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -343,19 +906,16 @@ export default function Profile() {
         setProfile(prev => ({ ...prev, photoURL: data.secure_url }));
         
         // Update Firebase auth profile
-        if (user) {
-          await updateProfile(user, {
-            photoURL: data.secure_url
-          });
+        await updateProfile(user, {
+          photoURL: data.secure_url
+        });
 
-          // Also update the profile document in Firestore
-          const userRef = doc(db, 'users', user.uid);
-          await setDoc(userRef, {
-            ...profile,
-            photoURL: data.secure_url,
-            updatedAt: new Date()
-          }, { merge: true });
-        }
+        // Also update the profile document in Firestore
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          photoURL: data.secure_url,
+          updatedAt: serverTimestamp()
+        });
       }
     } catch (err) {
       console.error('Error uploading image:', err);
@@ -372,15 +932,21 @@ export default function Profile() {
     setError(null);
 
     try {
-      const usersRef = collection(db, 'users');
+      // Calculate new profile completion score
+      const profileCompletionScore = calculateProfileCompletion(profile);
       
-      const profileData: UserProfile = {
+      // Prepare profile data with updated timestamp
+      const profileData = {
         ...profile,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
+        profile_completion: profileCompletionScore
       };
+      
+      // Update the profile in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, profileData);
 
-      await setDoc(doc(usersRef, user.uid), profileData);
-
+      // Update auth profile if photo has changed
       if (profile.photoURL && profile.photoURL !== user.photoURL) {
         await updateProfile(user, {
           photoURL: profile.photoURL
@@ -388,9 +954,31 @@ export default function Profile() {
       }
 
       setIsEditing(false);
-      // Show success message as a toast or notification instead of alert
       setError('Profile updated successfully!');
       setTimeout(() => setError(null), 3000);
+      
+      // Create profile completion achievement if applicable
+      if (profileCompletionScore > 50) {
+        const achievementRef = collection(db, 'user_achievements');
+        const achievementQuery = query(
+          achievementRef, 
+          where('user_id', '==', user.uid),
+          where('title', '==', 'Profile Master')
+        );
+        const achievementSnapshot = await getDocs(achievementQuery);
+        
+        if (achievementSnapshot.empty) {
+          await addDoc(collection(db, 'user_achievements'), {
+            title: 'Profile Master',
+            category: 'Platform',
+            description: 'Achieved a profile completion score of over 50%',
+            earned_date: serverTimestamp(),
+            user_id: user.uid,
+            icon_type: 'Award',
+            color_theme: 'green'
+          });
+        }
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       setError('Failed to save profile changes');
@@ -398,7 +986,8 @@ export default function Profile() {
       setSaving(false);
     }
   };
-    const handleAddInterest = () => {
+
+  const handleAddInterest = useCallback(() => {
     if (newInterest.trim() && !profile.interests.includes(newInterest.trim())) {
       setProfile(prev => ({
         ...prev,
@@ -406,9 +995,9 @@ export default function Profile() {
       }));
       setNewInterest('');
     }
-  };
+  }, [newInterest, profile.interests]);
 
-  const handleAddExpertise = () => {
+  const handleAddExpertise = useCallback(() => {
     if (newExpertise.trim() && !profile.expertise.includes(newExpertise.trim())) {
       setProfile(prev => ({
         ...prev,
@@ -416,21 +1005,21 @@ export default function Profile() {
       }));
       setNewExpertise('');
     }
-  };
+  }, [newExpertise, profile.expertise]);
 
-  const handleRemoveInterest = (interest: string) => {
+  const handleRemoveInterest = useCallback((interest: string) => {
     setProfile(prev => ({
       ...prev,
       interests: prev.interests.filter(i => i !== interest)
     }));
-  };
+  }, []);
 
-  const handleRemoveExpertise = (expertise: string) => {
+  const handleRemoveExpertise = useCallback((expertise: string) => {
     setProfile(prev => ({
       ...prev,
       expertise: prev.expertise.filter(e => e !== expertise)
     }));
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -477,7 +1066,7 @@ export default function Profile() {
             <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/50 to-transparent"></div>
             <div className="absolute bottom-4 left-6 text-white flex items-center">
               <Calendar className="h-4 w-4 mr-2" />
-              <span className="text-sm font-medium">Last updated: 2025-02-26 13:22:35</span>
+              <span className="text-sm font-medium">Last updated: 2025-02-26 15:09:52</span>
             </div>
           </div>
           <div className="relative px-6 py-5 sm:px-8 sm:py-6">
@@ -488,7 +1077,7 @@ export default function Profile() {
                     {user?.photoURL || profile.photoURL ? (
                       <img
                         src={profile.photoURL || user?.photoURL}
-                        alt={user?.displayName || ''}
+                        alt={user?.displayName || 'Abm32'}
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
@@ -540,7 +1129,7 @@ export default function Profile() {
               <div className="flex-grow flex flex-col items-center sm:items-start sm:mt-0 mt-4">
                 {/* Contact info */}
                 <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-600 mt-2">
-                  {isEditing ? (
+                                    {isEditing ? (
                     <>
                       <div className="flex items-center">
                         <MapPin className="w-4 h-4 mr-2 text-gray-400" />
@@ -639,22 +1228,26 @@ export default function Profile() {
             <ProfileStat 
               icon={<BookOpen className="h-5 w-5" />} 
               label="Publications" 
-              value={3} 
+              value={stats.publications} 
+              isLoading={stats.loading}
             />
             <ProfileStat 
               icon={<Users className="h-5 w-5" />} 
               label="Communities" 
-              value={2} 
+              value={stats.communities} 
+              isLoading={stats.loading}
             />
             <ProfileStat 
               icon={<Award className="h-5 w-5" />} 
               label="Badges" 
-              value={7} 
+              value={stats.badges} 
+              isLoading={stats.loading}
             />
             <ProfileStat 
-              icon={<Trophy className="h-5 w-5" />} 
-              label="Research Impact" 
-              value="High" 
+              icon={<ClipboardList className="h-5 w-5" />} 
+              label="Projects" 
+              value={stats.projects} 
+              isLoading={stats.loading}
             />
           </motion.div>
         )}
@@ -825,97 +1418,11 @@ export default function Profile() {
             <JoinedCommunitiesSection />
             
             {/* Research Achievements */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
-              className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
-            >
-              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-gray-100">
-                <div className="flex items-center space-x-2">
-                  <Trophy className="w-5 h-5 text-amber-600" />
-                  <h2 className="text-lg font-semibold text-gray-800">Research Achievements</h2>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-amber-50 to-amber-100 rounded-lg">
-                    <div className="bg-amber-200 p-2 rounded-full">
-                      <Star className="h-5 w-5 text-amber-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Top Contributor</h3>
-                      <p className="text-sm text-gray-600">Data Science Community</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-                    <div className="bg-blue-200 p-2 rounded-full">
-                      <Award className="h-5 w-5 text-blue-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Research Excellence</h3>
-                      <p className="text-sm text-gray-600">Quantum Computing Project</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
-                    <div className="bg-green-200 p-2 rounded-full">
-                      <GraduationCap className="h-5 w-5 text-green-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Methodology Mastery</h3>
-                      <p className="text-sm text-gray-600">Completed advanced training</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 text-center">
-                  <Link
-                    to="/achievements"
-                    className="inline-block px-4 py-2 text-sm text-amber-700 hover:text-amber-800 font-medium"
-                  >
-                    View All Achievements
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
+            <AchievementsSection />
             
             {/* User Info Card - Only show in view mode */}
             {!isEditing && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0, transition: { delay: 0.4 } }}
-                className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100"
-              >
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-800">Account Info</h2>
-                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-                      Abm32
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                    <span className="text-gray-600">Last login</span>
-                    <span className="text-gray-900 font-medium">2025-02-26 13:24:15</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                    <span className="text-gray-600">Member since</span>
-                    <span className="text-gray-900 font-medium">January 2025</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                    <span className="text-gray-600">Profile completion</span>
-                    <span className="text-gray-900 font-medium">87%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Account type</span>
-                    <span className="text-gray-900 font-medium">{profile.role}</span>
-                  </div>
-                </div>
-              </motion.div>
+              <AccountInfoCard profile={profile} />
             )}
           </div>
         </div>

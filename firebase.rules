@@ -113,6 +113,33 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // NEW - User-specific achievements
+    match /user_achievements/{achievementId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // NEW - User activity tracking
+    match /user_activities/{activityId} {
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // NEW - User badges
+    match /user_badges/{badgeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.user_id == request.auth.uid || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
     // Platform integrations
     match /discord_joins/{joinId} {
       allow read, write: if isSignedIn();
@@ -124,6 +151,20 @@ service cloud.firestore {
 
     match /reddit_subscriptions/{subId} {
       allow read, write: if isSignedIn();
+    }
+    
+    // NEW - Publications
+    match /publications/{publicationId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.author_id == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.author_id == request.auth.uid || 
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.author_id == request.auth.uid || 
+        isAdmin()
+      );
     }
   }
 }

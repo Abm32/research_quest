@@ -28,15 +28,15 @@ const AIAssistantContext = createContext<{
   updateActivity: (activity: string) => void;
 }>({
   isOpen: false,
-  setIsOpen: () => {},
+  setIsOpen: () => { },
   lastActivity: '',
-  updateActivity: () => {}
+  updateActivity: () => { }
 });
 
 // Create context for user activity and research progress
 const ResearchContext = createContext<{
   currentTopics: string[];
-  recentActivities: Array<{id: number, action: string, timestamp: string, resource: string}>;
+  recentActivities: Array<{ id: number, action: string, timestamp: string, resource: string }>;
   progress: number;
   addTopic: (topic: string) => void;
   removeTopic: (topic: string) => void;
@@ -44,8 +44,8 @@ const ResearchContext = createContext<{
   currentTopics: [],
   recentActivities: [],
   progress: 0,
-  addTopic: () => {},
-  removeTopic: () => {}
+  addTopic: () => { },
+  removeTopic: () => { }
 });
 
 // Custom hook for using AI Assistant context
@@ -79,10 +79,10 @@ function App() {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [lastActivity, setLastActivity] = useState("Browsing the research platform");
   const [currentTopics, setCurrentTopics] = useState<string[]>([]);
-  const [recentActivities, setRecentActivities] = useState<Array<{id: number, action: string, timestamp: string, resource: string}>>([]);
+  const [recentActivities, setRecentActivities] = useState<Array<{ id: number, action: string, timestamp: string, resource: string }>>([]);
   const [progress, setProgress] = useState(25);
   const { user } = useAuth();
-  
+
   // Dynamic research assistant prompts based on user context
   const suggestedPrompts = [
     {
@@ -102,14 +102,14 @@ function App() {
       category: "guidance"
     }
   ];
-  
+
   // Research context functions
   const addTopic = (topic: string) => {
     setCurrentTopics(prev => {
       if (prev.includes(topic)) return prev;
       return [topic, ...prev].slice(0, 5);
     });
-    
+
     // Add activity
     const newActivity = {
       id: Date.now(),
@@ -118,23 +118,23 @@ function App() {
       resource: topic
     };
     setRecentActivities(prev => [newActivity, ...prev].slice(0, 10));
-    
+
     // Update progress
     setProgress(prev => Math.min(prev + 5, 100));
   };
-  
+
   const removeTopic = (topic: string) => {
     setCurrentTopics(prev => prev.filter(t => t !== topic));
   };
-  
+
   // Update activity function for AI Assistant context
   const updateActivity = (activity: string) => {
     setLastActivity(activity);
-    
+
     // Add to recent activities if significant
-    if (activity.startsWith("Researching") || 
-        activity.startsWith("Analyzing") || 
-        activity.startsWith("Exploring")) {
+    if (activity.startsWith("Researching") ||
+      activity.startsWith("Analyzing") ||
+      activity.startsWith("Exploring")) {
       const newActivity = {
         id: Date.now(),
         action: activity,
@@ -144,12 +144,12 @@ function App() {
       setRecentActivities(prev => [newActivity, ...prev].slice(0, 10));
     }
   };
-  
+
   // Initialize with some sample data when first logged in
   useEffect(() => {
     if (user && recentActivities.length === 0) {
       const currentDate = "2025-02-26T08:00:03Z";
-      
+
       // Sample recent activities
       setRecentActivities([
         {
@@ -165,7 +165,7 @@ function App() {
           resource: "Investigative Research Methods"
         }
       ]);
-      
+
       // Check if we should show the assistant based on user being new
       if (!localStorage.getItem('hasSeenAssistant')) {
         setIsAIAssistantOpen(true);
@@ -176,8 +176,8 @@ function App() {
 
   return (
     <AuthProvider>
-      <AIAssistantContext.Provider value={{ 
-        isOpen: isAIAssistantOpen, 
+      <AIAssistantContext.Provider value={{
+        isOpen: isAIAssistantOpen,
         setIsOpen: setIsAIAssistantOpen,
         lastActivity,
         updateActivity
@@ -244,6 +244,14 @@ function App() {
                     />
                     <Route
                       path="/resources/:resourceId"
+                      element={
+                        <PrivateRoute>
+                          <Resources />
+                        </PrivateRoute>
+                      }
+                    />
+                    <Route
+                      path="/tools/knowledge-database"
                       element={
                         <PrivateRoute>
                           <Resources />
