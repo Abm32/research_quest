@@ -167,7 +167,6 @@ export default function Resources() {
       try {
         setSaving(true);
         if (isSaved) {
-          // Find the saved resource ID and remove it
           const savedResources = await resourceService.getSavedResources(user.uid);
           const savedResource = savedResources.find(sr => sr.resourceId === resource.id);
           if (savedResource) {
@@ -194,7 +193,7 @@ export default function Resources() {
           view === 'list' ? 'flex items-start space-x-4' : ''
         }`}
       >
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           <div className="flex items-start space-x-3 mb-3">
             <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0">
               <Icon className="w-5 h-5 text-indigo-600" />
@@ -209,9 +208,9 @@ export default function Resources() {
             </div>
           </div>
           
-          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{resource.description}</p>
+          <p className="text-sm text-gray-600 mb-3 sm:mb-4 line-clamp-2">{resource.description}</p>
           
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
             {resource.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
@@ -237,7 +236,7 @@ export default function Resources() {
                 <span>({resource.reviewCount})</span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               {user && (
                 <button
                   onClick={handleBookmark}
@@ -266,7 +265,7 @@ export default function Resources() {
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-1 text-sm"
+                  className="px-2.5 sm:px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-1 text-sm"
                 >
                   <span>View</span>
                   <ExternalLink className="w-3 h-3" />
@@ -274,7 +273,7 @@ export default function Resources() {
               ) : (
                 <button
                   onClick={() => handleDownload(resource.id)}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                  className="px-2.5 sm:px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                 >
                   Download
                 </button>
@@ -295,7 +294,7 @@ export default function Resources() {
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+          className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
         >
           <Upload className="w-4 h-4" />
           <span>Upload Resource</span>
@@ -303,8 +302,8 @@ export default function Resources() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm mb-6">
-        <div className="p-4">
-          <div className="flex flex-col space-y-4">
+        <div className="p-3 sm:p-4">
+          <div className="flex flex-col space-y-3 sm:space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -312,7 +311,7 @@ export default function Resources() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={isAIMode ? "Ask AI to find resources..." : "Search resources..."}
-                className={`w-full pl-10 pr-12 py-2 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
+                className={`w-full pl-10 pr-12 py-2.5 border rounded-xl focus:ring-2 focus:border-indigo-500 transition-colors text-sm ${
                   isAIMode 
                     ? 'border-indigo-500 bg-indigo-50 focus:ring-indigo-500' 
                     : 'border-gray-300 focus:ring-indigo-500'
@@ -330,13 +329,13 @@ export default function Resources() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm"
               >
-                <Filter className="w-5 h-5" />
-                <span className="ml-2">Filters</span>
+                <Filter className="w-5 h-5 mr-2" />
+                <span>Filters</span>
                 {(selectedType || selectedTags.length > 0 || sortBy !== 'downloads') && (
                   <span className="ml-2 bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
                     Active
@@ -345,24 +344,26 @@ export default function Resources() {
                 <ChevronDown className={`ml-2 w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
 
-              <select
-                value={view}
-                onChange={(e) => setView(e.target.value as 'grid' | 'list')}
-                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="grid">Grid View</option>
-                <option value="list">List View</option>
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={view}
+                  onChange={(e) => setView(e.target.value as 'grid' | 'list')}
+                  className="flex-1 sm:flex-none px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="grid">Grid</option>
+                  <option value="list">List</option>
+                </select>
 
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'date' | 'downloads' | 'rating')}
-                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="downloads">Most Downloaded</option>
-                <option value="rating">Highest Rated</option>
-                <option value="date">Most Recent</option>
-              </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'downloads' | 'rating')}
+                  className="flex-1 sm:flex-none px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="downloads">Most Downloaded</option>
+                  <option value="rating">Highest Rated</option>
+                  <option value="date">Most Recent</option>
+                </select>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -371,12 +372,12 @@ export default function Resources() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 pt-4"
+                  className="space-y-3 sm:space-y-4 pt-3 sm:pt-4"
                 >
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                   >
                     <option value="">All Types</option>
                     <option value="paper">Papers</option>
@@ -389,7 +390,7 @@ export default function Resources() {
 
                   <button
                     onClick={() => {/* Open tags filter modal */}}
-                    className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm"
+                    className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 text-sm"
                   >
                     <div className="flex items-center space-x-2">
                       <Tag className="w-5 h-5" />
@@ -413,9 +414,9 @@ export default function Resources() {
           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
       ) : (
-        <div className={`grid gap-4 sm:gap-6 ${
+        <div className={`grid gap-3 sm:gap-4 ${
           view === 'grid' 
-            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
             : 'grid-cols-1'
         }`}>
           <AnimatePresence>

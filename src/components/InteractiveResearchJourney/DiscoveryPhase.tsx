@@ -661,6 +661,7 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
                       <MessageCircle className="w-4 h-4" />
                       <span>{suggestion.discussions} discussions</span>
                     </div>
+
                   </div>
                   <button className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700 group text-sm">
                     <span>Explore</span>

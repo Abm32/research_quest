@@ -33,28 +33,39 @@ export interface Topic {
   id: string;
   title: string;
   description: string;
-  relevance: number;
-  color: string;
+  relevance: number | string;
+  color?: string;
   keywords: string[];
-  researchers: number;
-  discussions: number;
-  trending: boolean;
+  researchers?: number;
+  discussions?: number;
+  trending?: boolean;
   category: string;
   papers?: number;
   citations?: number;
+  selectionReason?: string;
+  researchInterests?: string[];
+  researchGoals?: string[];
+  userInteractions?: {
+    liked?: boolean;
+    viewedAt?: Date;
+    selectedAt?: Date;
+  };
+  trend?: string;
+  relatedTopics?: string[];
 }
 
 export interface ResearchTask {
   id: string;
-  projectId: string;
   title: string;
   description: string;
-  status: 'todo' | 'in-progress' | 'completed';
-  assignedTo: string;
-  dueDate?: Date;
-  priority: 'low' | 'medium' | 'high';
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  estimatedTime: string;
+  resources: string[];
+  completed: boolean;
+  projectId: string;
   createdAt: Date;
   updatedAt: Date;
+  dueDate?: Date;
 }
 
 export interface UserAchievement {
