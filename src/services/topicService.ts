@@ -1,16 +1,6 @@
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import type { Topic } from '../types';
-
-export interface ResearchTask {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  estimatedTime: string;
-  resources: string[];
-  completed: boolean;
-}
+import type { Topic, ResearchTask } from '../types';
 
 export interface TopicData {
   id: string;

@@ -18,13 +18,15 @@ import {
   Compass,
   ThumbsUp,
   ThumbsDown,
-  HelpCircle
+  HelpCircle,
+  ArrowLeft
 } from 'lucide-react';
 import { useAIAssistant } from '../../App';
 import { researchService } from '../../services/researchService';
 import { TopicExplorer } from './TopicExplorer';
 import { gamificationService } from '../../services/gamificationService';
 import { useAuth } from '../../components/auth/AuthContext';
+import { saveUserInteraction } from '../../services/topicService';
 import type { Topic } from '../../types';
 
 interface TopicSelection {
@@ -52,6 +54,7 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
   const [topicSelection, setTopicSelection] = useState<TopicSelection | null>(null);
   const [showGuidedQuestions, setShowGuidedQuestions] = useState(false);
   const { setIsOpen } = useAIAssistant();
+  const [topics, setTopics] = useState<Topic[]>([]);
 
   const suggestions: Topic[] = [
     {
@@ -248,10 +251,49 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         type: 'milestone',
         points: 100,
         category: 'Discovery',
-        icon: 'Star',
-        color: 'amber',
-        phase: 'discovery'
+        icon: 'compass',
+        color: 'blue'
       });
+    }
+
+    // Show guided questions for better topic understanding
+    setShowGuidedQuestions(true);
+
+    // Generate related topics
+    const related = suggestions.filter(t => 
+      t.id !== topic.id && 
+      (t.category === topic.category || 
+       t.keywords.some(k => topic.keywords.includes(k)))
+    );
+    setRelatedTopics(related);
+
+    // Update project progress
+    await researchService.updateProjectProgress(projectId, 'discovery', 50);
+  };
+
+  const handleTopicConfirm = async () => {
+    if (!topicSelection || !user) return;
+
+    try {
+      // Save topic selection with detailed information
+      await researchService.updateProjectTopic(projectId, {
+        ...topicSelection.topic,
+        selectionReason: topicSelection.reason,
+        researchInterests: topicSelection.interests,
+        researchGoals: topicSelection.goals
+      });
+
+      // Update progress
+      setTopicProgress(100);
+      await researchService.updateProjectProgress(projectId, 'discovery', 100);
+
+      // Award points for completing topic selection
+      await gamificationService.awardPoints(user.uid, 200, 'Topic Selection Completed');
+
+      // Move to next phase
+      await onPhaseComplete();
+    } catch (error) {
+      console.error('Error confirming topic:', error);
     }
   };
 
@@ -335,6 +377,44 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
   const handleProceedToDesign = () => {
     if (topicProgress === 100) {
       onPhaseComplete();
+    }
+  };
+
+  const handleTopicInterest = async (topic: Topic, type: 'like' | 'view') => {
+    try {
+      if (!user?.uid) return;
+
+      // Update topic with user interaction
+      const updatedTopic: Topic = {
+        ...topic,
+        userInteractions: [
+          ...(topic.userInteractions || []),
+          {
+            type: type === 'like' ? 'like' : 'view',
+            timestamp: new Date()
+          }
+        ]
+      };
+
+      // Save user interaction
+      await saveUserInteraction(user.uid, topic.id, {
+        type: type === 'like' ? 'like' : 'view',
+        timestamp: new Date()
+      });
+
+      // Award points for interaction
+      await gamificationService.awardPoints(
+        user.uid,
+        type === 'like' ? 5 : 2,
+        `Topic ${type === 'like' ? 'Liked' : 'Viewed'}: ${topic.title}`
+      );
+
+      // Update local state
+      setTopics(prevTopics => 
+        prevTopics.map(t => t.id === topic.id ? updatedTopic : t)
+      );
+    } catch (error) {
+      console.error('Error handling topic interest:', error);
     }
   };
 
@@ -622,202 +702,318 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Research Topic Discovery</h2>
-          <p className="text-gray-600">Find and explore research topics that match your interests.</p>
-        </div>
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setShowTopicExplorer(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Compass className="w-5 h-5" />
-            <span>Explore More Topics</span>
-          </button>
-          <button
-            onClick={() => setIsOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
-          >
-            <Bot className="w-5 h-5" />
-            <span>Get AI Assistance</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white mb-8">
-        <div className="flex items-start space-x-4">
-          <div className="p-3 bg-white bg-opacity-20 rounded-lg">
-            <HelpCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-2">New to Research?</h3>
-            <p className="opacity-90 mb-4">
-              Don't worry! We'll guide you through the process of finding the perfect research topic.
-              Start by exploring trending topics or use our topic explorer for more options.
-            </p>
-            <div className="flex space-x-4">
+      {!isExploring ? (
+        <>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Research Topic Discovery</h2>
+            <div className="flex items-center space-x-4">
               <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-opacity-90 transition-colors text-sm"
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors"
               >
-                <Bot className="w-4 h-4" />
-                <span>Get AI Assistance</span>
-              </button>
-              <button
-                onClick={() => setShowTopicExplorer(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-colors text-sm"
-              >
-                <Compass className="w-4 h-4" />
-                <span>Browse All Topics</span>
+                <Bot className="w-5 h-5" />
+                <span>Get AI Help</span>
               </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search research topics or keywords..."
-          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-        />
-      </div>
-
-      <button
-        onClick={() => setShowFilters(!showFilters)}
-        className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center space-x-2">
-          <span>Filters</span>
-          {activeFilter !== 'all' && (
-            <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-xs">
-              Active
-            </span>
-          )}
-        </div>
-        <ChevronDown className={`w-5 h-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-4"
-          >
-            <div className="flex overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-              <div className="flex space-x-2">
-                {filters.map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setActiveFilter(filter.id)}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors
-                      ${activeFilter === filter.id
-                        ? 'bg-indigo-100 text-indigo-600'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                  >
-                    <span>{filter.label}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search research topics or keywords..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Hash className="w-5 h-5 text-gray-500" />
+              <span>Filters</span>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredSuggestions.map((suggestion) => (
-          <motion.div
-            key={suggestion.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5 }}
-            className="group relative p-4 sm:p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
-            onClick={() => handleTopicSelect(suggestion)}
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${suggestion.color} opacity-5 group-hover:opacity-10 transition-opacity rounded-xl`} />
-            <div className="flex items-start space-x-3">
-              <div className={`p-2 sm:p-3 bg-gradient-to-br ${suggestion.color} rounded-xl flex-shrink-0`}>
-                <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
-                    {suggestion.title}
-                  </h3>
-                  {suggestion.trending && (
-                    <span className="flex items-center space-x-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>Trending</span>
-                    </span>
-                  )}
+          {showFilters && (
+            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg">
+              {filters.map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setActiveFilter(filter.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    activeFilter === filter.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredSuggestions.map((topic) => (
+              <motion.div
+                key={topic.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{topic.title}</h3>
+                    <p className="text-sm text-gray-600">{topic.category}</p>
+                  </div>
+                  <span className="text-green-600 text-sm font-medium">
+                    <TrendingUp className="w-4 h-4 inline mr-1" />
+                    {topic.relevance}% match
+                  </span>
                 </div>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{suggestion.description}</p>
+                <p className="text-gray-600 mb-4">{topic.description}</p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {suggestion.keywords.map((keyword) => (
+                  {topic.keywords.map((keyword) => (
                     <span
                       key={keyword}
-                      className="inline-flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
+                      className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
                     >
-                      <Hash className="w-3 h-3" />
-                      <span>{keyword}</span>
+                      {keyword}
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 text-xs text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-4 h-4" />
-                      <span>{suggestion.researchers?.length} researchers</span>
-                    </div>
-                    <div className="hidden sm:flex items-center space-x-1">
-                      <MessageCircle className="w-4 h-4" />
-                      <span>{suggestion.discussions?.length} discussions</span>
-                    </div>
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <div className="flex items-center space-x-4">
+                    <span className="flex items-center">
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      {topic.papers} papers
+                    </span>
+                    <span className="flex items-center">
+                      <MessageCircle className="w-4 h-4 mr-1" />
+                      {topic.discussions.length} discussions
+                    </span>
                   </div>
-                  <button className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700 group text-sm">
-                    <span>Explore</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <span className="flex items-center">
+                    <Users className="w-4 h-4 mr-1" />
+                    {topic.researchers.length} researchers
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div className="space-x-2">
+                    <button
+                      onClick={() => handleTopicInterest(topic, 'like')}
+                      className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    >
+                      <ThumbsUp className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleTopicInterest(topic, 'view')}
+                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <HelpCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleTopicSelect(topic)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    <span>Explore Topic</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
+              </motion.div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="space-y-6">
+          {selectedTopic && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-white p-8 rounded-xl shadow-sm"
+            >
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedTopic.title}</h2>
+                  <p className="text-gray-600 mt-2">{selectedTopic.category}</p>
+                </div>
+                <button
+                  onClick={() => setIsExploring(false)}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Topic Overview</h3>
+                  <p className="text-gray-600 mb-4">{selectedTopic.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {selectedTopic.keywords.map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-sm"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Relevance Score</span>
+                      <span className="font-medium text-green-600">{selectedTopic.relevance}% match</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Research Papers</span>
+                      <span className="font-medium text-gray-900">{selectedTopic.papers}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Citations</span>
+                      <span className="font-medium text-gray-900">{selectedTopic.citations}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Research Community</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Active Researchers</h4>
+                      <div className="space-y-2">
+                        {selectedTopic.researchers.map((researcher) => (
+                          <div key={researcher} className="flex items-center space-x-2">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">{researcher}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Current Discussions</h4>
+                      <div className="space-y-2">
+                        {selectedTopic.discussions.map((discussion) => (
+                          <div key={discussion} className="flex items-center space-x-2">
+                            <MessageCircle className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">{discussion}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {showGuidedQuestions && (
+                <div className="mt-8 pt-8 border-t border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Guided Questions</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        What interests you about this topic?
+                      </label>
+                      <textarea
+                        value={topicSelection?.interests.join(', ')}
+                        onChange={(e) => setTopicSelection(prev => ({
+                          ...prev!,
+                          interests: e.target.value.split(',').map(i => i.trim())
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        rows={3}
+                        placeholder="Enter your interests, separated by commas..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        What are your research goals?
+                      </label>
+                      <textarea
+                        value={topicSelection?.goals.join(', ')}
+                        onChange={(e) => setTopicSelection(prev => ({
+                          ...prev!,
+                          goals: e.target.value.split(',').map(g => g.trim())
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        rows={3}
+                        placeholder="Enter your research goals, separated by commas..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Why did you choose this topic?
+                      </label>
+                      <textarea
+                        value={topicSelection?.reason}
+                        onChange={(e) => setTopicSelection(prev => ({
+                          ...prev!,
+                          reason: e.target.value
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        rows={3}
+                        placeholder="Explain your motivation for choosing this topic..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  onClick={() => setIsExploring(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTopicConfirm}
+                  disabled={!topicSelection?.reason || topicSelection.interests.length === 0 || topicSelection.goals.length === 0}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirm Topic Selection
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {relatedTopics.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Related Topics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {relatedTopics.map((topic) => (
+                  <motion.div
+                    key={topic.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all"
+                  >
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{topic.title}</h4>
+                    <p className="text-gray-600 mb-4">{topic.description}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {topic.keywords.map((keyword) => (
+                        <span
+                          key={keyword}
+                          className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => handleTopicSelect(topic)}
+                      className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                    >
+                      Explore Topic
+                    </button>
+                  </motion.div>
+                ))}
               </div>
             </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {filteredSuggestions.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12"
-        >
-          <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 text-sm">No research topics found matching your search.</p>
-          <div className="mt-4 space-x-4">
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm"
-              >
-                Clear search
-              </button>
-            )}
-            {activeFilter !== 'all' && (
-              <button
-                onClick={() => setActiveFilter('all')}
-                className="text-indigo-600 hover:text-indigo-700 text-sm"
-              >
-                Show all topics
-              </button>
-            )}
-          </div>
-        </motion.div>
+          )}
+        </div>
       )}
     </div>
   );

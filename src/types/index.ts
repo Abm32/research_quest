@@ -34,17 +34,18 @@ export interface Topic {
   title: string;
   description: string;
   keywords: string[];
-  researchers?: string[];
-  discussions?: string[];
+  researchers: string[];
+  discussions: string[];
   relevance: number;
   trending: boolean;
   color: string;
   category: string;
-  papers?: number;
-  citations?: number;
+  papers: number;
+  citations: number;
   selectionReason?: string;
   researchInterests?: string[];
   researchGoals?: string[];
+  tasks?: ResearchTask[];
   userInteractions?: {
     type: string;
     timestamp: Date;

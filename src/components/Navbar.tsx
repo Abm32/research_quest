@@ -1,15 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, User, LogOut, Menu, X } from 'lucide-react';
+import { Search, Bell, User, LogOut, Menu, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { auth } from '../config/firebase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notificationService, type Notification } from '../services/notificationService';
 
 export default function Navbar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (user?.uid) {
+      loadNotifications();
+    }
+  }, [user?.uid]);
+
+  const loadNotifications = async () => {
+    if (!user?.uid) return;
+    const unreadNotifications = await notificationService.getUnreadNotifications(user.uid);
+    setNotifications(unreadNotifications);
+    setUnreadCount(unreadNotifications.length);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -17,6 +34,19 @@ export default function Navbar() {
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      await notificationService.markAsRead(notification.id);
+      setNotifications(prev => 
+        prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    if (notification.link) {
+      navigate(notification.link);
     }
   };
 
@@ -28,6 +58,18 @@ export default function Navbar() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const getNotificationIcon = (type: Notification['type']) => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'error':
+      case 'warning':
+        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+      default:
+        return <Info className="h-5 w-5 text-blue-500" />;
+    }
+  };
 
   return (
     <nav className="bg-white shadow-md relative z-50">
@@ -66,10 +108,78 @@ export default function Navbar() {
                   <button className="p-2 rounded-full text-gray-500 hover:text-indigo-600 hover:bg-gray-100">
                     <Search className="h-6 w-6" />
                   </button>
-                  <button className="p-2 rounded-full text-gray-500 hover:text-indigo-600 hover:bg-gray-100 relative">
-                    <Bell className="h-6 w-6" />
-                    <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
-                  </button>
+                  
+                  {/* Notifications Dropdown */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                      className="p-2 rounded-full text-gray-500 hover:text-indigo-600 hover:bg-gray-100 relative"
+                    >
+                      <Bell className="h-6 w-6" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 block h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center ring-2 ring-white">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <AnimatePresence>
+                      {isNotificationsOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                        >
+                          <div className="px-4 py-2 border-b border-gray-200">
+                            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                          </div>
+                          <div className="max-h-96 overflow-y-auto">
+                            {notifications.length === 0 ? (
+                              <div className="px-4 py-3 text-sm text-gray-500">
+                                No new notifications
+                              </div>
+                            ) : (
+                              notifications.map((notification) => (
+                                <button
+                                  key={notification.id}
+                                  onClick={() => handleNotificationClick(notification)}
+                                  className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                                    !notification.read ? 'bg-indigo-50' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-start space-x-3">
+                                    {getNotificationIcon(notification.type)}
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {notification.title}
+                                      </p>
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        {notification.message}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        {new Date(notification.createdAt).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                          {notifications.length > 0 && (
+                            <div className="px-4 py-2 border-t border-gray-200">
+                              <button
+                                onClick={() => navigate('/notifications')}
+                                className="text-sm text-indigo-600 hover:text-indigo-700"
+                              >
+                                View all notifications
+                              </button>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   
                   <Link
                     to="/profile"

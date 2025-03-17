@@ -26,10 +26,9 @@ import {
   saveGeneratedTasks,
   saveUserInteraction,
   getUserTopicHistory,
-  type ResearchTask,
   type TopicData
 } from '../../services/topicService';
-import type { Topic } from '../../types';
+import type { Topic, ResearchTask } from '../../types';
 
 interface TopicExplorerProps {
   onBack: () => void;
@@ -40,7 +39,76 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
   const [user, authLoading, authError] = useAuthState(auth);
   const [activeSection, setActiveSection] = useState<'trending' | 'news' | 'discover'>('trending');
   const [newsData, setNewsData] = useState<any[]>([]);
-  const [trendingTopics, setTrendingTopics] = useState<Topic[]>([]);
+  const [trendingTopics, setTrendingTopics] = useState<Topic[]>([
+    {
+      id: 'trend1',
+      title: 'AI in Healthcare',
+      description: 'Latest developments in AI applications for medical diagnosis and treatment.',
+      relevance: 92,
+      keywords: ['AI', 'Healthcare', 'Medical Technology'],
+      category: 'technology',
+      researchers: ['Dr. Sarah Johnson', 'Prof. Michael Chen'],
+      discussions: ['Latest breakthroughs', 'Industry applications'],
+      trending: true,
+      papers: 2500,
+      citations: 50000,
+      color: 'blue',
+      researchInterests: ['AI', 'Healthcare'],
+      researchGoals: ['Improving medical diagnosis', 'Enhancing treatment planning'],
+      userInteractions: []
+    },
+    {
+      id: 'trend2',
+      title: 'Sustainable Energy',
+      description: 'Innovations in renewable energy and sustainable technologies.',
+      relevance: 85,
+      keywords: ['Sustainability', 'Energy', 'Climate Change'],
+      category: 'environmental',
+      researchers: ['Dr. Emily Brown', 'Prof. David Wilson'],
+      discussions: ['Policy implications', 'Technology adoption'],
+      trending: true,
+      papers: 3000,
+      citations: 55000,
+      color: 'green',
+      researchInterests: ['Renewable Energy', 'Sustainability'],
+      researchGoals: ['Developing energy solutions', 'Promoting sustainability'],
+      userInteractions: []
+    },
+    {
+      id: 'trend3',
+      title: 'Quantum Computing',
+      description: 'Breakthroughs in quantum computing and its applications.',
+      relevance: 88,
+      keywords: ['Quantum Computing', 'Quantum Mechanics', 'Computer Science'],
+      category: 'technology',
+      researchers: ['Dr. James Smith', 'Prof. Lisa Chen'],
+      discussions: ['Quantum supremacy', 'Practical applications'],
+      trending: true,
+      papers: 2800,
+      citations: 48000,
+      color: 'purple',
+      researchInterests: ['Quantum Computing', 'Computer Science'],
+      researchGoals: ['Advancing quantum computing', 'Developing applications'],
+      userInteractions: []
+    },
+    {
+      id: 'trend4',
+      title: 'Neural Networks',
+      description: 'Advances in deep learning and neural network architectures.',
+      relevance: 90,
+      keywords: ['Deep Learning', 'Neural Networks', 'Machine Learning'],
+      category: 'technology',
+      researchers: ['Dr. Robert Wilson', 'Prof. Maria Garcia'],
+      discussions: ['Architecture design', 'Training methods'],
+      trending: true,
+      papers: 3200,
+      citations: 60000,
+      color: 'indigo',
+      researchInterests: ['Deep Learning', 'Neural Networks'],
+      researchGoals: ['Improving architectures', 'Enhancing training methods'],
+      userInteractions: []
+    }
+  ]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -119,7 +187,7 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
   const [topicTasks, setTopicTasks] = useState<{ [key: string]: ResearchTask[] }>({});
   const [selectedTopicTasks, setSelectedTopicTasks] = useState<ResearchTask[]>([]);
   const [isConfirmingTopic, setIsConfirmingTopic] = useState(false);
-  const [selectedTopicData, setSelectedTopicData] = useState<TopicData | null>(null);
+  const [selectedTopicData, setSelectedTopicData] = useState<Topic | null>(null);
 
   useEffect(() => {
     // Load initial data regardless of authentication
@@ -389,94 +457,66 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
   const generateTasksForTopic = async (topic: string, isSelected: boolean = false) => {
     try {
       setIsLoading(true);
-      const API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-1B-Instruct";
-      const API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY;
-
-      const prompt = `Generate 3 research tasks for the topic "${topic}". For each task provide:
-        1. A clear title
-        2. A detailed description
-        3. Difficulty level (must be exactly one of: Beginner, Intermediate, or Advanced)
-        4. Estimated time to complete
-        5. List of helpful resources
-        Format the response as a JSON array.`;
-
-      const { data } = await axios.post(
-        API_URL,
-        { inputs: prompt },
+      
+      // Generate tasks based on predefined templates
+      const formattedTasks: ResearchTask[] = [
         {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      try {
-        const parsedTasks = JSON.parse(data[0]?.generated_text);
-        const tasks: ResearchTask[] = parsedTasks.map((task: any) => ({
           id: crypto.randomUUID(),
-          title: task.title,
-          description: task.description,
-          difficulty: task.difficulty as 'Beginner' | 'Intermediate' | 'Advanced',
-          estimatedTime: task.estimatedTime,
-          resources: task.resources,
-          completed: false
+          title: 'Literature Review',
+          description: `Conduct a comprehensive literature review on ${topic}. Identify key research papers, methodologies, and findings.`,
+          difficulty: 'Beginner',
+          estimatedTime: '2-3 weeks',
+          resources: ['Google Scholar', 'Research Gate', 'Academic Journals'],
+          completed: false,
+          projectId: crypto.randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Research Proposal',
+          description: `Develop a detailed research proposal for studying ${topic}. Include research questions, methodology, and expected outcomes.`,
+          difficulty: 'Intermediate',
+          estimatedTime: '3-4 weeks',
+          resources: ['Research Methodology Books', 'Sample Proposals', 'Academic Writing Guides'],
+          completed: false,
+          projectId: crypto.randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Data Collection Plan',
+          description: `Design a comprehensive data collection strategy for ${topic}. Include data sources, collection methods, and analysis approach.`,
+          difficulty: 'Intermediate',
+          estimatedTime: '2-3 weeks',
+          resources: ['Data Collection Tools', 'Statistical Analysis Software', 'Research Methods Guides'],
+          completed: false,
+          projectId: crypto.randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: crypto.randomUUID(),
+          title: 'Pilot Study',
+          description: `Design and conduct a small pilot study on ${topic}. Test your methodology and collect preliminary data.`,
+          difficulty: 'Advanced',
+          estimatedTime: '4-6 weeks',
+          resources: ['Statistical Tools', 'Data Collection Methods', 'Analysis Software'],
+          completed: false,
+          projectId: crypto.randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
+
+      if (isSelected) {
+        setSelectedTopicTasks(formattedTasks);
+      } else {
+        setTopicTasks(prev => ({
+          ...prev,
+          [topic]: formattedTasks
         }));
-
-        // Save tasks to Firebase only if user is authenticated
-        if (user && isSelected && selectedTopicData) {
-          await saveGeneratedTasks(user.uid, selectedTopicData.id, tasks);
-        }
-
-        if (isSelected) {
-          setSelectedTopicTasks(tasks);
-        } else {
-          setTopicTasks(prev => ({
-            ...prev,
-            [topic]: tasks
-          }));
-        }
-      } catch (parseError) {
-        console.error('Error parsing AI tasks:', parseError);
-        // Use fallback tasks
-        const fallbackTasks: ResearchTask[] = [
-          {
-            id: crypto.randomUUID(),
-            title: 'Literature Review',
-            description: 'Conduct a comprehensive literature review on the topic.',
-            difficulty: 'Beginner',
-            estimatedTime: '2-3 weeks',
-            resources: ['Google Scholar', 'Research Gate', 'Academic Journals'],
-            completed: false
-          },
-          {
-            id: crypto.randomUUID(),
-            title: 'Research Proposal',
-            description: 'Develop a detailed research proposal.',
-            difficulty: 'Intermediate',
-            estimatedTime: '3-4 weeks',
-            resources: ['Research Methodology Books', 'Sample Proposals'],
-            completed: false
-          },
-          {
-            id: crypto.randomUUID(),
-            title: 'Pilot Study',
-            description: 'Design and conduct a small pilot study.',
-            difficulty: 'Advanced',
-            estimatedTime: '4-6 weeks',
-            resources: ['Statistical Tools', 'Data Collection Methods'],
-            completed: false
-          }
-        ];
-
-        if (isSelected) {
-          setSelectedTopicTasks(fallbackTasks);
-        } else {
-          setTopicTasks(prev => ({
-            ...prev,
-            [topic]: fallbackTasks
-          }));
-        }
       }
     } catch (error) {
       console.error('Error generating tasks:', error);
@@ -489,9 +529,13 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
     if (!user) return;
 
     try {
-      // Update topic with user interaction
+      // Generate tasks for the selected topic
+      await generateTasksForTopic(topic.title, true);
+
+      // Update topic with tasks and user interaction
       const updatedTopic: Topic = {
         ...topic,
+        tasks: selectedTopicTasks,
         userInteractions: [
           ...(topic.userInteractions || []),
           {
@@ -501,11 +545,9 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
         ]
       };
 
-      // Save topic selection
-      await saveTopicSelection(user.uid, updatedTopic);
-
-      // Call the parent's onTopicSelect handler
-      onTopicSelect(updatedTopic);
+      // Set the selected topic data
+      setSelectedTopicData(updatedTopic);
+      setIsConfirmingTopic(true);
     } catch (error) {
       console.error('Error selecting topic:', error);
       // Handle error appropriately
@@ -513,26 +555,22 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
   };
 
   const handleConfirmTopic = async () => {
-    if (!selectedTopicData) return;
+    if (!selectedTopicData || !user) return;
 
     try {
-      // Save to Firebase only if user is authenticated
-      if (user) {
-        const topicId = await saveTopicSelection(user.uid, {
-          ...selectedTopicData,
-          tasks: selectedTopicTasks,
-          userInteractions: {
-            ...selectedTopicData.userInteractions,
-            selectedAt: new Date()
-          }
-        });
+      // Save to Firebase
+      const topicId = await saveTopicSelection(user.uid, selectedTopicData);
+      
+      // Save generated tasks
+      await saveGeneratedTasks(user.uid, topicId, selectedTopicTasks);
 
-        await saveUserInteraction(user.uid, topicId, {
-          type: 'select',
-          timestamp: new Date()
-        });
-      }
+      // Save user interaction
+      await saveUserInteraction(user.uid, topicId, {
+        type: 'select',
+        timestamp: new Date()
+      });
 
+      // Call the parent's onTopicSelect handler
       onTopicSelect(selectedTopicData);
       setIsConfirmingTopic(false);
     } catch (error) {
@@ -726,17 +764,17 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
                     </div>
                     <span className="text-green-600 text-sm font-medium">
                       <TrendingUp className="w-4 h-4 inline mr-1" />
-                      {topic.trend}
+                      {topic.relevance}% match
                     </span>
                   </div>
                   <p className="text-gray-600 mb-4">{topic.description}</p>
                   <div className="flex flex-wrap gap-2">
-                    {(topic.relatedTopics || []).map((related: string) => (
+                    {topic.keywords.map((keyword) => (
                       <span
-                        key={related}
+                        key={keyword}
                         className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
                       >
-                        {related}
+                        {keyword}
                       </span>
                     ))}
                   </div>
@@ -972,16 +1010,16 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="text-lg font-semibold text-gray-900">{topic.title}</h4>
-                          <span className="text-sm text-green-600 font-medium">{topic.trend}</span>
+                          <span className="text-sm text-green-600 font-medium">{topic.relevance}% match</span>
                         </div>
                         <p className="text-gray-600 mb-4">{topic.description}</p>
                         <div className="flex flex-wrap gap-2">
-                          {(topic.relatedTopics || []).map((related: string) => (
+                          {topic.keywords.map((keyword) => (
                             <span
-                              key={related}
-                              className="px-2 py-1 bg-green-50 text-green-600 rounded-full text-sm"
+                              key={keyword}
+                              className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
                             >
-                              {related}
+                              {keyword}
                             </span>
                           ))}
                         </div>
