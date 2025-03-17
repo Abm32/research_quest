@@ -1,34 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Award, ChevronUp, User } from 'lucide-react';
+import { Trophy, Medal, Award } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
+import { gamificationService } from '../../services/gamificationService';
+import type { LeaderboardEntry } from '../../services/gamificationService';
 
 export function Leaderboard() {
-  const researchers = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      points: 2500,
-      rank: 1,
-      institution: 'Stanford University',
-      trend: 'up'
-    },
-    {
-      id: '2',
-      name: 'Prof. Michael Chen',
-      points: 2350,
-      rank: 2,
-      institution: 'MIT',
-      trend: 'up'
-    },
-    {
-      id: '3',
-      name: 'Dr. Emily Brown',
-      points: 2200,
-      rank: 3,
-      institution: 'Harvard University',
-      trend: 'down'
-    }
-  ];
+  const { user } = useAuth();
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const leaderboardData = await gamificationService.getLeaderboard(10);
+        setEntries(leaderboardData);
+      } catch (err) {
+        setError('Failed to load leaderboard');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, []);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -37,165 +34,82 @@ export function Leaderboard() {
       case 2:
         return <Medal className="w-6 h-6 text-gray-400" />;
       case 3:
-        return <Award className="w-6 h-6 text-amber-600" />;
+        return <Medal className="w-6 h-6 text-amber-600" />;
       default:
-        return null;
+        return <Award className="w-6 h-6 text-indigo-500" />;
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-4"
-      >
-        <h2 className="text-3xl font-bold text-gray-900">Research Leaderboard</h2>
-        <p className="text-gray-600">
-          Top performing researchers based on contributions and achievements.
-        </p>
-      </motion.div>
-
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6 bg-indigo-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-2xl font-bold">Global Rankings</h3>
-              <p className="text-indigo-200 mt-1">Updated in real-time</p>
-            </div>
-            <Trophy className="w-12 h-12 text-yellow-400" />
-          </div>
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
+          ))}
         </div>
+      </div>
+    );
+  }
 
-        <div className="divide-y">
-          {researchers.map((researcher, index) => (
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="text-red-600 text-center">{error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-xl shadow-sm overflow-hidden"
+    >
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+        <h2 className="text-xl font-bold text-white">Research Leaderboard</h2>
+      </div>
+
+      <div className="p-6">
+        <div className="space-y-4">
+          {entries.map((entry, index) => (
             <motion.div
-              key={researcher.id}
+              key={entry.userId}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="p-6 flex items-center space-x-4 hover:bg-gray-50"
+              className={`flex items-center space-x-4 p-4 rounded-lg ${
+                entry.userId === user?.uid
+                  ? 'bg-indigo-50 border-2 border-indigo-200'
+                  : 'bg-gray-50'
+              }`}
             >
-              <div className="flex-shrink-0 w-12 text-center">
-                {getRankIcon(researcher.rank) || (
-                  <span className="text-xl font-bold text-gray-600">
-                    {researcher.rank}
+              <div className="flex-shrink-0">
+                {getRankIcon(entry.rank)}
+              </div>
+              <div className="flex-grow">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-900">
+                    {entry.username}
+                    {entry.userId === user?.uid && (
+                      <span className="ml-2 text-sm text-indigo-600">(You)</span>
+                    )}
                   </span>
-                )}
-              </div>
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <User className="w-6 h-6 text-indigo-600" />
+                  <span className="text-sm text-gray-500">#{entry.rank}</span>
                 </div>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-lg font-semibold text-gray-900">
-                  {researcher.name}
-                </h4>
-                <p className="text-gray-600">{researcher.institution}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-indigo-600">
-                  {researcher.points}
-                </p>
-                <p className="text-sm text-gray-600">points</p>
-              </div>
-              <div className="flex-shrink-0">
-                {researcher.trend === 'up' ? (
-                  <ChevronUp className="w-6 h-6 text-green-500" />
-                ) : (
-                  <ChevronUp className="w-6 h-6 text-red-500 transform rotate-180" />
-                )}
+                <div className="flex items-center space-x-4 mt-1">
+                  <span className="text-sm text-gray-600">
+                    {entry.totalPoints} points
+                  </span>
+                  <span className="text-sm text-gray-600">
+                    {entry.achievements} achievements
+                  </span>
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-xl shadow-sm"
-        >
-          <h3 className="text-lg font-semibold mb-4">Top Institutions</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">Stanford University</span>
-              <span className="text-indigo-600 font-semibold">12,500 pts</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">MIT</span>
-              <span className="text-indigo-600 font-semibold">11,200 pts</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">Harvard University</span>
-              <span className="text-indigo-600 font-semibold">10,800 pts</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-xl shadow-sm"
-        >
-          <h3 className="text-lg font-semibold mb-4">Research Fields</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">Machine Learning</span>
-              <span className="text-indigo-600 font-semibold">8,200 pts</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">Quantum Computing</span>
-              <span className="text-indigo-600 font-semibold">7,500 pts</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-900">Climate Science</span>
-              <span className="text-indigo-600 font-semibold">6,800 pts</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-xl shadow-sm"
-        >
-          <h3 className="text-lg font-semibold mb-4">Monthly Progress</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Publications</span>
-                <span>85%</span>
-              </div>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500" style={{ width: '85%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Collaborations</span>
-                <span>70%</span>
-              </div>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500" style={{ width: '70%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Citations</span>
-                <span>60%</span>
-              </div>
-              <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500" style={{ width: '60%' }} />
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   );
 }

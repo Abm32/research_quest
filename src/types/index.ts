@@ -33,12 +33,12 @@ export interface Topic {
   id: string;
   title: string;
   description: string;
-  relevance: number | string;
-  color?: string;
   keywords: string[];
-  researchers?: number;
-  discussions?: number;
-  trending?: boolean;
+  researchers?: string[];
+  discussions?: string[];
+  relevance: number;
+  trending: boolean;
+  color: string;
   category: string;
   papers?: number;
   citations?: number;
@@ -46,12 +46,9 @@ export interface Topic {
   researchInterests?: string[];
   researchGoals?: string[];
   userInteractions?: {
-    liked?: boolean;
-    viewedAt?: Date;
-    selectedAt?: Date;
-  };
-  trend?: string;
-  relatedTopics?: string[];
+    type: string;
+    timestamp: Date;
+  }[];
 }
 
 export interface ResearchTask {
@@ -70,12 +67,15 @@ export interface ResearchTask {
 
 export interface UserAchievement {
   id: string;
-  userId: string;
-  type: 'badge' | 'milestone' | 'reward';
   title: string;
   description: string;
-  icon: string;
+  type: 'badge' | 'milestone' | 'reward';
+  points: number;
   earnedAt: Date;
+  category: string;
+  icon: string;
+  color: string;
+  phase?: string;
 }
 
 export interface UserPoints {

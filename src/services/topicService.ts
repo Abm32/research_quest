@@ -1,5 +1,6 @@
 import { db } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import type { Topic } from '../types';
 
 export interface ResearchTask {
   id: string;
@@ -30,7 +31,7 @@ export interface TopicData {
   };
 }
 
-export const saveTopicSelection = async (userId: string, topic: TopicData) => {
+export const saveTopicSelection = async (userId: string, topic: Topic) => {
   try {
     const topicRef = await addDoc(collection(db, 'userTopics'), {
       userId,

@@ -6,52 +6,78 @@ import {
   updateDoc, 
   increment,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import type { UserAchievement, UserPoints, Reward } from '../types';
 
+export interface LeaderboardEntry {
+  userId: string;
+  username: string;
+  totalPoints: number;
+  achievements: number;
+  rank: number;
+}
+
 export const gamificationService = {
   // Award points to a user
-  async awardPoints(userId: string, amount: number, description: string): Promise<void> {
-    const userPointsRef = doc(db, 'points', userId);
-    
-    await updateDoc(userPointsRef, {
-      total: increment(amount),
-      history: arrayUnion({
-        id: crypto.randomUUID(),
-        amount,
-        type: 'earned',
-        description,
+  async awardPoints(userId: string, points: number, reason: string): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+
+    // Update user's total points
+    await updateDoc(userRef, {
+      totalPoints: increment(points),
+      pointsHistory: arrayUnion({
+        points,
+        reason,
         timestamp: serverTimestamp()
       })
     });
+
+    // Update leaderboard
+    await this.updateLeaderboard(userId);
   },
 
   // Get user's points
-  async getUserPoints(userId: string): Promise<UserPoints | null> {
-    const docRef = doc(db, 'points', userId);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? { userId, ...docSnap.data() } as UserPoints : null;
+  async getUserPoints(userId: string): Promise<number> {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    return userDoc.exists() ? userDoc.data().totalPoints || 0 : 0;
   },
 
   // Award an achievement to a user
   async awardAchievement(userId: string, achievement: Partial<UserAchievement>): Promise<void> {
     const achievementData = {
-      userId,
+      ...achievement,
       earnedAt: serverTimestamp(),
-      ...achievement
+      id: `${userId}-${achievement.title}-${Date.now()}`
     };
 
-    await updateDoc(doc(db, 'users', userId), {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
       achievements: arrayUnion(achievementData)
     });
+
+    // Award points for achievement
+    if (achievement.points) {
+      await this.awardPoints(userId, achievement.points, `Achievement: ${achievement.title}`);
+    }
   },
 
   // Get user's achievements
   async getUserAchievements(userId: string): Promise<UserAchievement[]> {
-    const docRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data().achievements || [] : [];
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    return userDoc.exists() ? userDoc.data().achievements || [] : [];
   },
 
   // Get available rewards
@@ -94,5 +120,60 @@ export const gamificationService = {
     });
 
     return true;
+  },
+
+  // Get leaderboard
+  async getLeaderboard(limitCount: number = 10): Promise<LeaderboardEntry[]> {
+    const usersRef = collection(db, 'users');
+    const leaderboardQuery = query(
+      usersRef,
+      orderBy('totalPoints', 'desc'),
+      limit(limitCount)
+    );
+
+    const snapshot = await getDocs(leaderboardQuery);
+    return snapshot.docs.map((doc, index) => ({
+      userId: doc.id,
+      username: doc.data().displayName || 'Anonymous',
+      totalPoints: doc.data().totalPoints || 0,
+      achievements: doc.data().achievements?.length || 0,
+      rank: index + 1
+    }));
+  },
+
+  // Update leaderboard for a specific user
+  async updateLeaderboard(userId: string): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) return;
+
+    const userData = userDoc.data();
+    const totalPoints = userData.totalPoints || 0;
+    const achievements = userData.achievements || [];
+
+    // Update user's rank in leaderboard
+    await updateDoc(userRef, {
+      leaderboardRank: {
+        totalPoints,
+        achievements: achievements.length,
+        lastUpdated: serverTimestamp()
+      }
+    });
+  },
+
+  // Get phase-specific achievements
+  async getPhaseAchievements(phase: string): Promise<UserAchievement[]> {
+    const achievementsRef = collection(db, 'phase_achievements');
+    const phaseQuery = query(
+      achievementsRef,
+      where('phase', '==', phase)
+    );
+
+    const snapshot = await getDocs(phaseQuery);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as UserAchievement[];
   }
 };

@@ -29,31 +29,7 @@ import {
   type ResearchTask,
   type TopicData
 } from '../../services/topicService';
-
-interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  relevance: number | string;
-  color?: string;
-  keywords: string[];
-  researchers?: number;
-  discussions?: number;
-  trending?: boolean;
-  category: string;
-  papers?: number;
-  citations?: number;
-  selectionReason?: string;
-  researchInterests?: string[];
-  researchGoals?: string[];
-  userInteractions?: {
-    liked?: boolean;
-    viewedAt?: Date;
-    selectedAt?: Date;
-  };
-  trend?: string;
-  relatedTopics?: string[];
-}
+import type { Topic } from '../../types';
 
 interface TopicExplorerProps {
   onBack: () => void;
@@ -74,53 +50,69 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
       id: 'rec1',
       title: 'Impact of AI on Healthcare',
       description: 'Research opportunities in AI-driven medical diagnosis and treatment.',
-      relevance: '95',
+      relevance: 95,
       keywords: ['AI', 'Healthcare', 'Medical Technology'],
       category: 'technology',
-      researchers: 1200,
-      discussions: 350,
+      researchers: ['Dr. Sarah Johnson', 'Prof. Michael Chen'],
+      discussions: ['Latest breakthroughs', 'Industry applications'],
       trending: true,
       papers: 2000,
-      citations: 40000
+      citations: 40000,
+      color: 'blue',
+      researchInterests: ['AI', 'Healthcare'],
+      researchGoals: ['Improving medical diagnosis', 'Enhancing treatment planning'],
+      userInteractions: []
     },
     {
       id: 'rec2',
       title: 'Sustainable Energy Solutions',
       description: 'Exploring renewable energy technologies and their implementation.',
-      relevance: '88',
+      relevance: 88,
       keywords: ['Sustainability', 'Energy', 'Climate Change'],
       category: 'environmental',
-      researchers: 1500,
-      discussions: 400,
+      researchers: ['Dr. Emily Brown', 'Prof. David Wilson'],
+      discussions: ['Policy implications', 'Technology adoption'],
       trending: true,
       papers: 2500,
-      citations: 45000
+      citations: 45000,
+      color: 'green',
+      researchInterests: ['Renewable Energy', 'Sustainability'],
+      researchGoals: ['Developing energy solutions', 'Promoting sustainability'],
+      userInteractions: []
     },
     {
       id: 'rec3',
       title: 'Quantum Machine Learning',
       description: 'Exploring the intersection of quantum computing and machine learning algorithms.',
-      relevance: '82',
+      relevance: 82,
       keywords: ['Quantum Computing', 'Machine Learning', 'Algorithm Design'],
       category: 'technology',
-      researchers: 800,
-      discussions: 250,
+      researchers: ['Dr. James Smith', 'Prof. Lisa Chen'],
+      discussions: ['Clinical applications', 'Ethical considerations'],
       trending: false,
       papers: 1500,
-      citations: 25000
+      citations: 25000,
+      color: 'purple',
+      researchInterests: ['Quantum Computing', 'Machine Learning'],
+      researchGoals: ['Advancing quantum ML', 'Developing new algorithms'],
+      userInteractions: []
     },
     {
       id: 'rec4',
       title: 'Neurotechnology Advances',
       description: 'Latest developments in brain-computer interfaces and neural engineering.',
-      relevance: '78',
+      relevance: 78,
       keywords: ['Neuroscience', 'BCI', 'Neural Networks'],
       category: 'neuroscience',
-      researchers: 900,
-      discussions: 280,
+      researchers: ['Dr. Robert Wilson', 'Prof. Maria Garcia'],
+      discussions: ['Clinical trials', 'Ethical implications'],
       trending: false,
       papers: 1800,
-      citations: 30000
+      citations: 30000,
+      color: 'indigo',
+      researchInterests: ['Neuroscience', 'BCI'],
+      researchGoals: ['Advancing neurotechnology', 'Improving BCI systems'],
+      userInteractions: []
     }
   ]);
   const [activeDiscoverySection, setActiveDiscoverySection] = useState<'interests' | 'global' | 'collaboration' | null>(null);
@@ -147,13 +139,15 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
           category: 'Technology',
           relevance: 95,
           keywords: ['Machine Learning', 'Policy Making', 'Social Impact'],
-          trend: '+125% interest this month',
-          relatedTopics: ['Machine Learning', 'Policy Making', 'Social Impact'],
-          researchers: 1500,
-          discussions: 450,
+          researchers: ['Dr. Sarah Johnson', 'Prof. Michael Chen'],
+          discussions: ['Latest breakthroughs', 'Industry applications'],
           trending: true,
           papers: 2500,
-          citations: 45000
+          citations: 45000,
+          color: 'blue',
+          researchInterests: ['AI', 'Ethics', 'Governance'],
+          researchGoals: ['Understanding AI ethics', 'Developing governance frameworks'],
+          userInteractions: []
         },
         {
           id: 'quantum-computing',
@@ -162,13 +156,15 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
           category: 'Physics',
           relevance: 88,
           keywords: ['Quantum Mechanics', 'Computer Science', 'Cryptography'],
-          trend: '+82% research papers',
-          relatedTopics: ['Quantum Mechanics', 'Computer Science', 'Cryptography'],
-          researchers: 1200,
-          discussions: 380,
+          researchers: ['Dr. Emily Brown', 'Prof. David Wilson'],
+          discussions: ['Policy implications', 'Technology adoption'],
           trending: true,
           papers: 1800,
-          citations: 35000
+          citations: 35000,
+          color: 'green',
+          researchInterests: ['Quantum Computing', 'Cryptography'],
+          researchGoals: ['Exploring quantum applications', 'Developing quantum algorithms'],
+          userInteractions: []
         },
         {
           id: 'climate-solutions',
@@ -177,13 +173,15 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
           category: 'Environmental Science',
           relevance: 92,
           keywords: ['Renewable Energy', 'Sustainability', 'Environmental Policy'],
-          trend: '+95% collaborative projects',
-          relatedTopics: ['Renewable Energy', 'Sustainability', 'Environmental Policy'],
-          researchers: 2000,
-          discussions: 600,
+          researchers: ['Dr. James Smith', 'Prof. Lisa Chen'],
+          discussions: ['Clinical applications', 'Ethical considerations'],
           trending: true,
           papers: 3000,
-          citations: 55000
+          citations: 55000,
+          color: 'purple',
+          researchInterests: ['Climate Change', 'Sustainability'],
+          researchGoals: ['Developing climate solutions', 'Promoting sustainability'],
+          userInteractions: []
         },
         {
           id: 'brain-computer',
@@ -192,13 +190,15 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
           category: 'Neuroscience',
           relevance: 90,
           keywords: ['Neural Engineering', 'Human-Computer Interaction', 'Medical Technology'],
-          trend: '+150% funding increase',
-          relatedTopics: ['Neural Engineering', 'Human-Computer Interaction', 'Medical Technology'],
-          researchers: 1000,
-          discussions: 320,
+          researchers: ['Dr. Robert Wilson', 'Prof. Maria Garcia'],
+          discussions: ['Clinical trials', 'Ethical implications'],
           trending: true,
           papers: 1500,
-          citations: 28000
+          citations: 28000,
+          color: 'indigo',
+          researchInterests: ['BCI', 'Neuroscience'],
+          researchGoals: ['Advancing BCI technology', 'Improving human-computer interaction'],
+          userInteractions: []
         }
       ];
 
@@ -236,22 +236,35 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
     }
   };
 
-  const handleTopicInterest = async (topic: string, interested: boolean) => {
-    if (interested) {
-      setUserInterests(prev => [...prev, topic]);
-    } else {
-      setUserInterests(prev => prev.filter(t => t !== topic));
-    }
+  const handleTopicInterest = async (topic: Topic, interested: boolean) => {
+    if (!user) return;
 
-    // Only save to Firebase if user is authenticated
-    if (user) {
-      await saveUserInteraction(user.uid, topic, {
-        type: interested ? 'like' : 'view',
-        timestamp: new Date()
-      });
-    }
+    try {
+      // Update user interests
+      if (interested) {
+        setUserInterests(prev => [...prev, topic.id]);
+      } else {
+        setUserInterests(prev => prev.filter(t => t !== topic.id));
+      }
 
-    generateRecommendations(topic, interested);
+      // Update topic with user interaction
+      const updatedTopic: Topic = {
+        ...topic,
+        userInteractions: [
+          ...(topic.userInteractions || []),
+          {
+            type: interested ? 'like' : 'view',
+            timestamp: new Date()
+          }
+        ]
+      };
+
+      // Save topic selection
+      await saveTopicSelection(user.uid, updatedTopic);
+    } catch (error) {
+      console.error('Error handling topic interest:', error);
+      // Handle error appropriately
+    }
   };
 
   const generateRecommendations = async (topic: string, interested: boolean) => {
@@ -472,28 +485,31 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
     }
   };
 
-  const handleTopicSelect = async (topic: any) => {
-    const formattedTopic: TopicData = {
-      id: topic.id,
-      title: topic.title,
-      description: topic.description,
-      category: topic.category,
-      relevance: 95,
-      keywords: topic.relatedTopics || [],
-      researchers: Math.floor(Math.random() * 1000) + 500,
-      discussions: Math.floor(Math.random() * 200) + 50,
-      papers: Math.floor(Math.random() * 10000) + 5000,
-      citations: Math.floor(Math.random() * 200000) + 50000,
-      tasks: [],
-      userInteractions: {
-        liked: userInterests.includes(topic.id),
-        viewedAt: new Date()
-      }
-    };
+  const handleTopicSelect = async (topic: Topic) => {
+    if (!user) return;
 
-    setSelectedTopicData(formattedTopic);
-    setIsConfirmingTopic(true);
-    await generateTasksForTopic(topic.title, true);
+    try {
+      // Update topic with user interaction
+      const updatedTopic: Topic = {
+        ...topic,
+        userInteractions: [
+          ...(topic.userInteractions || []),
+          {
+            type: 'select',
+            timestamp: new Date()
+          }
+        ]
+      };
+
+      // Save topic selection
+      await saveTopicSelection(user.uid, updatedTopic);
+
+      // Call the parent's onTopicSelect handler
+      onTopicSelect(updatedTopic);
+    } catch (error) {
+      console.error('Error selecting topic:', error);
+      // Handle error appropriately
+    }
   };
 
   const handleConfirmTopic = async () => {
@@ -727,13 +743,13 @@ export function TopicExplorer({ onBack, onTopicSelect }: TopicExplorerProps) {
                   <div className="flex justify-between items-center">
                     <div className="space-x-2">
                       <button
-                        onClick={() => handleTopicInterest(topic.id, true)}
+                        onClick={() => handleTopicInterest(topic, true)}
                         className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       >
                         <ThumbsUp className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => handleTopicInterest(topic.id, false)}
+                        onClick={() => handleTopicInterest(topic, false)}
                         className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <ThumbsDown className="w-5 h-5" />

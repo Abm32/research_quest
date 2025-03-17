@@ -23,23 +23,15 @@ import {
 import { useAIAssistant } from '../../App';
 import { researchService } from '../../services/researchService';
 import { TopicExplorer } from './TopicExplorer';
+import { gamificationService } from '../../services/gamificationService';
+import { useAuth } from '../../components/auth/AuthContext';
+import type { Topic } from '../../types';
 
-interface Topic {
-  id: string;
-  title: string;
-  description: string;
-  relevance: number;
-  color: string;
-  keywords: string[];
-  researchers: number;
-  discussions: number;
-  trending: boolean;
-  category: string;
-  papers?: number;
-  citations?: number;
-  selectionReason?: string;
-  researchInterests?: string[];
-  researchGoals?: string[];
+interface TopicSelection {
+  topic: Topic;
+  interests: string[];
+  goals: string[];
+  reason: string;
 }
 
 interface DiscoveryPhaseProps {
@@ -47,14 +39,8 @@ interface DiscoveryPhaseProps {
   onPhaseComplete: () => Promise<void>;
 }
 
-interface TopicSelection {
-  topic: Topic;
-  reason: string;
-  interests: string[];
-  goals: string[];
-}
-
 export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhaseProps) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -70,82 +56,128 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
   const suggestions: Topic[] = [
     {
       id: '1',
-      title: 'Machine Learning',
-      description: 'Explore artificial intelligence and machine learning algorithms.',
+      title: 'Quantum Computing Applications',
+      description: 'Exploring practical applications of quantum computing in cryptography and optimization problems.',
+      keywords: ['quantum computing', 'cryptography', 'optimization'],
+      researchers: ['Dr. Sarah Johnson', 'Prof. Michael Chen'],
+      discussions: ['Latest breakthroughs', 'Industry applications'],
       relevance: 95,
-      color: 'from-purple-500 to-indigo-500',
-      keywords: ['AI', 'Neural Networks', 'Deep Learning'],
-      researchers: 1234,
-      discussions: 456,
       trending: true,
-      category: 'technology',
-      papers: 15000,
-      citations: 250000
+      color: 'blue',
+      category: 'Computer Science',
+      papers: 150,
+      citations: 1200
     },
     {
       id: '2',
-      title: 'Data Science',
-      description: 'Analyze and interpret complex data sets.',
-      relevance: 88,
-      color: 'from-blue-500 to-cyan-500',
-      keywords: ['Big Data', 'Analytics', 'Statistics'],
-      researchers: 987,
-      discussions: 234,
+      title: 'Sustainable Energy Solutions',
+      description: 'Investigating renewable energy technologies and their impact on climate change.',
+      keywords: ['renewable energy', 'climate change', 'sustainability'],
+      researchers: ['Dr. Emily Brown', 'Prof. David Wilson'],
+      discussions: ['Policy implications', 'Technology adoption'],
+      relevance: 90,
       trending: true,
-      category: 'technology',
-      papers: 12000,
-      citations: 180000
+      color: 'green',
+      category: 'Environmental Science',
+      papers: 200,
+      citations: 1800
     },
     {
       id: '3',
-      title: 'Cognitive Psychology',
-      description: 'Study mental processes and human behavior.',
-      relevance: 82,
-      color: 'from-green-500 to-teal-500',
-      keywords: ['Memory', 'Perception', 'Learning'],
-      researchers: 567,
-      discussions: 123,
-      trending: false,
-      category: 'psychology',
-      papers: 8000,
-      citations: 120000
+      title: 'AI in Healthcare',
+      description: 'Examining the role of artificial intelligence in medical diagnosis and treatment planning.',
+      keywords: ['artificial intelligence', 'healthcare', 'medical diagnosis'],
+      researchers: ['Dr. James Smith', 'Prof. Lisa Chen'],
+      discussions: ['Clinical applications', 'Ethical considerations'],
+      relevance: 85,
+      trending: true,
+      color: 'purple',
+      category: 'Healthcare',
+      papers: 180,
+      citations: 1500
     },
     {
       id: '4',
-      title: 'Climate Change',
-      description: 'Research environmental impacts and solutions.',
-      relevance: 78,
-      color: 'from-orange-500 to-red-500',
-      keywords: ['Environment', 'Global Warming', 'Sustainability'],
-      researchers: 789,
-      discussions: 345,
+      title: 'Neural Networks in Robotics',
+      description: 'Advancing robotic systems through deep learning and neural network architectures.',
+      keywords: ['robotics', 'deep learning', 'neural networks'],
+      researchers: ['Dr. Robert Wilson', 'Prof. Maria Garcia'],
+      discussions: ['Control systems', 'Human-robot interaction'],
+      relevance: 88,
       trending: true,
-      category: 'environmental',
-      papers: 10000,
-      citations: 200000
+      color: 'indigo',
+      category: 'Robotics',
+      papers: 160,
+      citations: 1400
     },
     {
       id: '5',
-      title: 'Quantum Computing',
-      description: 'Explore quantum mechanics and computation.',
-      relevance: 75,
-      color: 'from-pink-500 to-rose-500',
-      keywords: ['Quantum Mechanics', 'Computing', 'Physics'],
-      researchers: 432,
-      discussions: 167,
-      trending: false,
-      category: 'physics',
-      papers: 5000,
-      citations: 80000
+      title: 'Bioinformatics and Genomics',
+      description: 'Analyzing genetic data and developing computational tools for biological research.',
+      keywords: ['genomics', 'bioinformatics', 'data analysis'],
+      researchers: ['Dr. Thomas Lee', 'Prof. Rachel Kim'],
+      discussions: ['Gene sequencing', 'Disease prediction'],
+      relevance: 92,
+      trending: true,
+      color: 'pink',
+      category: 'Biology',
+      papers: 220,
+      citations: 2000
+    },
+    {
+      id: '6',
+      title: 'Cybersecurity in IoT',
+      description: 'Addressing security challenges in the Internet of Things ecosystem.',
+      keywords: ['cybersecurity', 'IoT', 'network security'],
+      researchers: ['Dr. Alex Turner', 'Prof. Sarah Martinez'],
+      discussions: ['Vulnerability assessment', 'Security protocols'],
+      relevance: 87,
+      trending: true,
+      color: 'red',
+      category: 'Security',
+      papers: 170,
+      citations: 1600
+    },
+    {
+      id: '7',
+      title: 'Space Exploration Technologies',
+      description: 'Developing innovative technologies for space exploration and colonization.',
+      keywords: ['space technology', 'astronomy', 'aerospace'],
+      researchers: ['Dr. Neil Patel', 'Prof. Emily Chen'],
+      discussions: ['Mars colonization', 'Space tourism'],
+      relevance: 89,
+      trending: true,
+      color: 'yellow',
+      category: 'Space Science',
+      papers: 190,
+      citations: 1700
+    },
+    {
+      id: '8',
+      title: 'Digital Privacy and Ethics',
+      description: 'Investigating privacy concerns and ethical implications in the digital age.',
+      keywords: ['privacy', 'ethics', 'data protection'],
+      researchers: ['Dr. Sophia Brown', 'Prof. David Lee'],
+      discussions: ['Data rights', 'Privacy laws'],
+      relevance: 86,
+      trending: true,
+      color: 'orange',
+      category: 'Ethics',
+      papers: 165,
+      citations: 1450
     }
   ];
 
   const filters = [
     { id: 'all', label: 'All Topics' },
-    { id: 'technology', label: 'Technology' },
-    { id: 'psychology', label: 'Psychology' },
-    { id: 'environmental', label: 'Environmental' },
-    { id: 'physics', label: 'Physics' }
+    { id: 'Computer Science', label: 'Computer Science' },
+    { id: 'Environmental Science', label: 'Environmental Science' },
+    { id: 'Healthcare', label: 'Healthcare' },
+    { id: 'Robotics', label: 'Robotics' },
+    { id: 'Biology', label: 'Biology' },
+    { id: 'Security', label: 'Security' },
+    { id: 'Space Science', label: 'Space Science' },
+    { id: 'Ethics', label: 'Ethics' }
   ];
 
   useEffect(() => {
@@ -197,12 +229,30 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
       return matchesSearch && matchesFilter;
     });
 
-  const handleTopicSelect = (topic: Topic) => {
+  const handleTopicSelect = async (topic: Topic) => {
     setSelectedTopic(topic);
-    setShowGuidedQuestions(true);
-    setIsExploring(false);
+    setIsExploring(true);
     setTopicProgress(0);
-    setShowTopicExplorer(false);
+    setTopicSelection({
+      topic,
+      interests: [],
+      goals: [],
+      reason: ''
+    });
+
+    // Award achievement for topic selection
+    if (user) {
+      await gamificationService.awardAchievement(user.uid, {
+        title: 'Topic Explorer',
+        description: 'Selected your first research topic',
+        type: 'milestone',
+        points: 100,
+        category: 'Discovery',
+        icon: 'Star',
+        color: 'amber',
+        phase: 'discovery'
+      });
+    }
   };
 
   const handleGuidedQuestionsSubmit = (
@@ -230,6 +280,56 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
       researchInterests: interests,
       researchGoals: goals
     }).catch(console.error);
+  };
+
+  const handleProjectCreation = async () => {
+    if (!user || !selectedTopic) return;
+
+    try {
+      // Create new project
+      const project = await researchService.createProject(user.uid, {
+        title: `${selectedTopic.title} Research Project`,
+        description: `Research project on ${selectedTopic.title}`,
+        phase: 'discovery',
+        status: 'active',
+        progress: 0,
+        topic: selectedTopic,
+        tasks: []
+      });
+
+      // Award achievement for project creation
+      await gamificationService.awardAchievement(user.uid, {
+        title: 'Project Pioneer',
+        description: 'Created your first research project',
+        type: 'milestone',
+        points: 200,
+        category: 'Project Management',
+        icon: 'Trophy',
+        color: 'blue',
+        phase: 'discovery'
+      });
+
+      // Award points for completing discovery phase
+      await gamificationService.awardPoints(user.uid, 500, 'Completed Discovery Phase');
+
+      // Award achievement for completing discovery phase
+      await gamificationService.awardAchievement(user.uid, {
+        title: 'Discovery Master',
+        description: 'Successfully completed the discovery phase',
+        type: 'badge',
+        points: 300,
+        category: 'Research Progress',
+        icon: 'Award',
+        color: 'green',
+        phase: 'discovery'
+      });
+
+      // Navigate to next phase
+      onPhaseComplete();
+    } catch (error) {
+      console.error('Error creating project:', error);
+      // Handle error appropriately
+    }
   };
 
   const handleProceedToDesign = () => {
@@ -509,10 +609,10 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
               <span>Topic exploration complete!</span>
             </div>
             <button
-              onClick={handleProceedToDesign}
+              onClick={handleProjectCreation}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              Proceed to Design Phase
+              Create Project & Continue
             </button>
           </motion.div>
         )}
@@ -527,13 +627,22 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Research Topic Discovery</h2>
           <p className="text-gray-600">Find and explore research topics that match your interests.</p>
         </div>
-        <button
-          onClick={() => setShowTopicExplorer(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Compass className="w-5 h-5" />
-          <span>Explore More Topics</span>
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setShowTopicExplorer(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Compass className="w-5 h-5" />
+            <span>Explore More Topics</span>
+          </button>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+          >
+            <Bot className="w-5 h-5" />
+            <span>Get AI Assistance</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white mb-8">
@@ -547,13 +656,22 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
               Don't worry! We'll guide you through the process of finding the perfect research topic.
               Start by exploring trending topics or use our topic explorer for more options.
             </p>
-            <button
-              onClick={() => setIsOpen(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-opacity-90 transition-colors text-sm"
-            >
-              <Bot className="w-4 h-4" />
-              <span>Get AI Assistance</span>
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setIsOpen(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-opacity-90 transition-colors text-sm"
+              >
+                <Bot className="w-4 h-4" />
+                <span>Get AI Assistance</span>
+              </button>
+              <button
+                onClick={() => setShowTopicExplorer(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 text-white rounded-lg hover:bg-opacity-30 transition-colors text-sm"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Browse All Topics</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -612,7 +730,7 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredSuggestions.map((suggestion) => (
           <motion.div
             key={suggestion.id}
@@ -632,9 +750,9 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                     {suggestion.title}
                   </h3>
-                      {suggestion.trending && (
+                  {suggestion.trending && (
                     <span className="flex items-center space-x-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-                          <TrendingUp className="w-3 h-3" />
+                      <TrendingUp className="w-3 h-3" />
                       <span>Trending</span>
                     </span>
                   )}
@@ -655,13 +773,12 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
                   <div className="flex items-center space-x-4 text-xs text-gray-600">
                     <div className="flex items-center space-x-1">
                       <Users className="w-4 h-4" />
-                      <span>{suggestion.researchers.toLocaleString()} researchers</span>
+                      <span>{suggestion.researchers?.length} researchers</span>
                     </div>
                     <div className="hidden sm:flex items-center space-x-1">
                       <MessageCircle className="w-4 h-4" />
-                      <span>{suggestion.discussions} discussions</span>
+                      <span>{suggestion.discussions?.length} discussions</span>
                     </div>
-
                   </div>
                   <button className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700 group text-sm">
                     <span>Explore</span>
