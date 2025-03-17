@@ -14,7 +14,7 @@ export default function Footer() {
           <div>
             <h3 className="text-xl font-bold">Quick Links</h3>
             <ul className="mt-4 space-y-2">
-              <li><Link to="/journey" className="text-gray-400 hover:text-white transition-colors">Start Your Journey</Link></li>
+              <li><Link to="/research-journey" className="text-gray-400 hover:text-white transition-colors">Start Your Journey</Link></li>
               <li><Link to="/communities" className="text-gray-400 hover:text-white transition-colors">Explore Communities</Link></li>
               <li><Link to="/resources" className="text-gray-400 hover:text-white transition-colors">Resources</Link></li>
             </ul>

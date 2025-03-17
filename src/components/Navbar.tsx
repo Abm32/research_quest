@@ -23,7 +23,7 @@ export default function Navbar() {
   const menuItems = [
     { path: '/communities', label: 'Communities' },
     { path: '/resources', label: 'Resources' },
-    { path: '/journey', label: 'Research Journey' },
+    { path: '/research-journey', label: 'Research Journey' },
     { path: '/analysis', label: 'Analysis Suite' },
   ];
 

@@ -408,7 +408,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <Link
-                  to="/journey"
+                  to="/research-journey"
                   className="inline-block px-8 py-4 bg-white text-teal-700 font-medium rounded-xl hover:bg-teal-50 transition-all duration-300 shadow-md hover:shadow-lg"
                 >
                   <span className="flex items-center space-x-2 justify-center">
