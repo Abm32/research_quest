@@ -22,10 +22,26 @@ export interface ResearchProject {
   phase: 'discovery' | 'design' | 'development' | 'evaluation';
   status: 'active' | 'completed' | 'archived';
   progress: number;
+  topic?: Topic;
   tasks: ResearchTask[];
   collaborators: string[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Topic {
+  id: string;
+  title: string;
+  description: string;
+  relevance: number;
+  color: string;
+  keywords: string[];
+  researchers: number;
+  discussions: number;
+  trending: boolean;
+  category: string;
+  papers?: number;
+  citations?: number;
 }
 
 export interface ResearchTask {
@@ -33,12 +49,12 @@ export interface ResearchTask {
   projectId: string;
   title: string;
   description: string;
-  status: 'todo' | 'in_progress' | 'completed';
+  status: 'todo' | 'in-progress' | 'completed';
   assignedTo: string;
-  dueDate: Date;
+  dueDate?: Date;
   priority: 'low' | 'medium' | 'high';
   createdAt: Date;
-  updatedAt?: Date;
+  updatedAt: Date;
 }
 
 export interface UserAchievement {

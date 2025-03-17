@@ -3,18 +3,39 @@ import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth'
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('Missing required Firebase configuration variables:', missingEnvVars);
+  throw new Error('Missing required Firebase configuration. Check your .env file.');
+}
+
 const firebaseConfig = {
-  apiKey: "AIzaSyA7YdB5bKmQp4nFTFqlcW2mvFk3Se1MZ2U",
-  authDomain: "pokedex-abhi1.firebaseapp.com",
-  databaseURL: "https://pokedex-abhi1-default-rtdb.firebaseio.com",
-  projectId: "pokedex-abhi1",
-  storageBucket: "pokedex-abhi1.appspot.com",
-  messagingSenderId: "86763938546",
-  appId: "1:86763938546:web:b246a73a4d6659ffd0666b"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+  throw error;
+}
 
 // Initialize Auth with persistence
 export const auth = getAuth(app);
@@ -24,8 +45,7 @@ setPersistence(auth, browserLocalPersistence)
 
 // Initialize Firestore with settings for better offline support
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false,
+  experimentalForceLongPolling: true
 });
 
 // Initialize Storage

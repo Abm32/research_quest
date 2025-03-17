@@ -12,12 +12,13 @@ import {
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import type { ResearchProject, ResearchTask } from '../types';
+import type { ResearchProject, ResearchTask, Topic } from '../types';
 
 export const researchService = {
   // Get all research projects for a user
   async getUserProjects(userId: string): Promise<ResearchProject[]> {
     try {
+      console.log('Fetching projects for user:', userId);
       const q = query(
         collection(db, 'research_projects'),
         where('userId', '==', userId),
@@ -25,18 +26,23 @@ export const researchService = {
       );
       
       const querySnapshot = await getDocs(q);
+      console.log('Found projects:', querySnapshot.size);
       
       // If there are no documents, return an empty array (not an error)
       if (querySnapshot.empty) {
+        console.log('No projects found for user');
         return [];
       }
 
-      return querySnapshot.docs.map(doc => ({ 
+      const projects = querySnapshot.docs.map(doc => ({ 
         id: doc.id, 
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate()
       })) as ResearchProject[];
+      
+      console.log('Processed projects:', projects);
+      return projects;
     } catch (error) {
       console.error('Error getting user projects:', error);
       throw new Error('Failed to get user projects');
@@ -44,12 +50,13 @@ export const researchService = {
   },
 
   // Create a new research project
-  async createProject(userId: string, project: Partial<ResearchProject>): Promise<string> {
+  async createProject(userId: string, project: Partial<ResearchProject>): Promise<ResearchProject> {
     try {
+      console.log('Creating project for user:', userId);
       const projectData = {
         userId,
-        title: project.title,
-        description: project.description,
+        title: project.title || 'Untitled Project',
+        description: project.description || 'No description provided',
         phase: 'discovery',
         status: 'active',
         progress: 0,
@@ -60,7 +67,14 @@ export const researchService = {
       };
 
       const docRef = await addDoc(collection(db, 'research_projects'), projectData);
-      return docRef.id;
+      console.log('Project created with ID:', docRef.id);
+      
+      return {
+        id: docRef.id,
+        ...projectData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as ResearchProject;
     } catch (error) {
       console.error('Error creating project:', error);
       throw new Error('Failed to create project');
@@ -172,5 +186,46 @@ export const researchService = {
       console.error('Error getting project tasks:', error);
       throw new Error('Failed to get project tasks');
     }
+  },
+
+  // New functions for Discovery phase
+  async updateProjectTopic(projectId: string, topic: Topic): Promise<void> {
+    const projectRef = doc(db, 'research_projects', projectId);
+    await updateDoc(projectRef, {
+      topic,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  async updateProjectProgress(projectId: string, phase: string, progress: number): Promise<void> {
+    const projectRef = doc(db, 'research_projects', projectId);
+    await updateDoc(projectRef, {
+      phase,
+      progress,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  async getProjectDetails(projectId: string): Promise<ResearchProject | null> {
+    const projectRef = doc(db, 'research_projects', projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      return null;
+    }
+
+    return {
+      id: projectDoc.id,
+      ...projectDoc.data()
+    } as ResearchProject;
+  },
+
+  async updateProjectPhase(projectId: string, phase: string): Promise<void> {
+    const projectRef = doc(db, 'research_projects', projectId);
+    await updateDoc(projectRef, {
+      phase,
+      progress: 0,
+      updatedAt: serverTimestamp()
+    });
   }
 };

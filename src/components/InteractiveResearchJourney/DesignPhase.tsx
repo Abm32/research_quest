@@ -11,8 +11,14 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ResearchAssistant } from '../AIChat/ResearchAssistant';
+import { researchService } from '../../services/researchService';
 
-export function DesignPhase() {
+interface DesignPhaseProps {
+  projectId: string;
+  onPhaseComplete: () => Promise<void>;
+}
+
+export function DesignPhase({ projectId, onPhaseComplete }: DesignPhaseProps) {
   const [tasks, setTasks] = React.useState([
     { 
       id: '1', 
@@ -62,6 +68,15 @@ export function DesignPhase() {
         return 'text-yellow-600 bg-yellow-50';
       default:
         return 'text-green-600 bg-green-50';
+    }
+  };
+
+  const handleContinueToDevelopment = async () => {
+    try {
+      await researchService.updateProjectPhase(projectId, 'development');
+      onPhaseComplete();
+    } catch (error) {
+      console.error('Error updating phase:', error);
     }
   };
 
@@ -205,7 +220,10 @@ export function DesignPhase() {
         <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
           Save Draft
         </button>
-        <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+        <button 
+          onClick={handleContinueToDevelopment}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
           Continue to Development
         </button>
       </motion.div>

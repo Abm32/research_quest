@@ -5,10 +5,11 @@ import { useAuth } from '../auth/AuthContext';
 import { researchService } from '../../services/researchService';
 
 interface ProjectCreationProps {
-  onProjectCreated: () => void;
+  onProjectCreated: () => Promise<void>;
+  onClose: () => void;
 }
 
-export function ProjectCreation({ onProjectCreated }: ProjectCreationProps) {
+export function ProjectCreation({ onProjectCreated, onClose }: ProjectCreationProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -59,7 +60,15 @@ export function ProjectCreation({ onProjectCreated }: ProjectCreationProps) {
       animate={{ opacity: 1, y: 0 }}
       className="bg-white rounded-xl shadow-sm p-6"
     >
-      <h2 className="text-2xl font-bold mb-6">Create New Research Project</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Create New Research Project</h2>
+        <button
+          onClick={onClose}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg">

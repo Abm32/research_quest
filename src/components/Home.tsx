@@ -188,7 +188,7 @@ export default function Home() {
               className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4"
             >
               <Link
-                to="/journey"
+                to="/research-journey" 
                 className="group relative px-8 py-4 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all duration-300 overflow-hidden"
               >
                 <motion.div
@@ -201,7 +201,7 @@ export default function Home() {
                 </span>
               </Link>
               <Link
-                to="/methodologies"
+                to="/methodology"
                 className="group px-8 py-4 border-2 border-slate-600 text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <span className="flex items-center justify-center space-x-2">
@@ -345,17 +345,20 @@ export default function Home() {
                 {
                   icon: Database,
                   title: "Knowledge Database",
-                  description: "Search through thousands of curated research papers and articles"
+                  description: "Search through thousands of curated research papers and articles",
+                  link: "/resources"
                 },
                 {
                   icon: BarChart2,
                   title: "Analysis Suite",
-                  description: "Powerful tools to analyze and visualize your research data"
+                  description: "Powerful tools to analyze and visualize your research data",
+                  link: "/analysis"
                 },
                 {
                   icon: GitBranch,
                   title: "Methodology Builder",
-                  description: "Create and customize research plans tailored to your project"
+                  description: "Create and customize research plans tailored to your project",
+                  link: "/methodology"
                 }
               ].map((tool, index) => (
                 <motion.div
@@ -371,7 +374,7 @@ export default function Home() {
                   <h3 className="text-xl font-semibold text-slate-800">{tool.title}</h3>
                   <p className="mt-2 text-slate-600">{tool.description}</p>
                   <Link
-                    to={`/tools/${tool.title.toLowerCase().replace(' ', '-')}`}
+                    to={tool.link}
                     className="mt-4 inline-flex items-center text-teal-600 hover:text-teal-700"
                   >
                     <span>Explore tool</span>
@@ -527,7 +530,7 @@ export default function Home() {
             </div>
             <div className="mt-8 text-center">
               <Link
-                to="/tips"
+                to="/research-tips"
                 className="inline-flex items-center text-teal-600 hover:text-teal-700 font-medium"
               >
                 <span>View all research tips</span>

@@ -17,6 +17,7 @@ import { Signup } from './components/auth/Signup';
 import { FloatingResearchAssistant } from './components/AIChat/FloatingResearchAssistant';
 import MethodologyExplorer from './components/MethodologyExplorer';
 import InvestigationTools from './components/InvestigationTools';
+import AnalysisSuite from './components/AnalysisSuite';
 import { Demo } from './components/Demo';
 import { PageTransition } from './components/ui/PageTransition';
 
@@ -81,98 +82,18 @@ function App() {
   const [currentTopics, setCurrentTopics] = useState<string[]>([]);
   const [recentActivities, setRecentActivities] = useState<Array<{ id: number, action: string, timestamp: string, resource: string }>>([]);
   const [progress, setProgress] = useState(25);
-  const { user } = useAuth();
 
-  // Dynamic research assistant prompts based on user context
-  const suggestedPrompts = [
-    {
-      text: "How can I structure my research investigation?",
-      category: "methodology"
-    },
-    {
-      text: "What analysis methods would work for my collected data?",
-      category: "analysis"
-    },
-    {
-      text: "Help me find credible sources for my investigation",
-      category: "literature"
-    },
-    {
-      text: user ? `Suggest next steps for my "${currentTopics[0] || 'research'}" investigation` : "Suggest a research topic to investigate",
-      category: "guidance"
-    }
-  ];
+  const updateActivity = (activity: string) => {
+    setLastActivity(activity);
+  };
 
-  // Research context functions
   const addTopic = (topic: string) => {
-    setCurrentTopics(prev => {
-      if (prev.includes(topic)) return prev;
-      return [topic, ...prev].slice(0, 5);
-    });
-
-    // Add activity
-    const newActivity = {
-      id: Date.now(),
-      action: "Added research topic",
-      timestamp: new Date().toISOString(),
-      resource: topic
-    };
-    setRecentActivities(prev => [newActivity, ...prev].slice(0, 10));
-
-    // Update progress
-    setProgress(prev => Math.min(prev + 5, 100));
+    setCurrentTopics(prev => [...new Set([...prev, topic])]);
   };
 
   const removeTopic = (topic: string) => {
     setCurrentTopics(prev => prev.filter(t => t !== topic));
   };
-
-  // Update activity function for AI Assistant context
-  const updateActivity = (activity: string) => {
-    setLastActivity(activity);
-
-    // Add to recent activities if significant
-    if (activity.startsWith("Researching") ||
-      activity.startsWith("Analyzing") ||
-      activity.startsWith("Exploring")) {
-      const newActivity = {
-        id: Date.now(),
-        action: activity,
-        timestamp: new Date().toISOString(),
-        resource: ""
-      };
-      setRecentActivities(prev => [newActivity, ...prev].slice(0, 10));
-    }
-  };
-
-  // Initialize with some sample data when first logged in
-  useEffect(() => {
-    if (user && recentActivities.length === 0) {
-      const currentDate = "2025-02-26T08:00:03Z";
-
-      // Sample recent activities
-      setRecentActivities([
-        {
-          id: 1,
-          action: "Joined platform",
-          timestamp: currentDate,
-          resource: "Research Platform"
-        },
-        {
-          id: 2,
-          action: "Viewed methodology guide",
-          timestamp: currentDate,
-          resource: "Investigative Research Methods"
-        }
-      ]);
-
-      // Check if we should show the assistant based on user being new
-      if (!localStorage.getItem('hasSeenAssistant')) {
-        setIsAIAssistantOpen(true);
-        localStorage.setItem('hasSeenAssistant', 'true');
-      }
-    }
-  }, [user]);
 
   return (
     <AuthProvider>
@@ -190,115 +111,108 @@ function App() {
           removeTopic
         }}>
           <Router>
-            <div className="min-h-screen flex flex-col bg-slate-50">
+            <div className="min-h-screen bg-slate-50">
               <Navbar />
               <PageTransition>
-                <main className="flex-grow">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/demo" element={<Demo />} />
-                    <Route path="/tips" element={<ResearchTips />} />
-                    <Route path="/methodologies" element={<MethodologyExplorer />} />
-                    <Route path="/tools/methodology-builder" element={<MethodologyExplorer />} />
-                    <Route path="/tools/:toolId" element={<InvestigationTools />} />
-                    <Route
-                      path="/profile/setup"
-                      element={
-                        <PrivateRoute>
-                          <ProfileSetup />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/communities"
-                      element={
-                        <PrivateRoute>
-                          <Communities />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/communities/joined"
-                      element={
-                        <PrivateRoute>
-                          <JoinedCommunities />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/communities/:communityId/chat"
-                      element={
-                        <PrivateRoute>
-                          <CommunityChat />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/resources"
-                      element={
-                        <PrivateRoute>
-                          <Resources />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/resources/:resourceId"
-                      element={
-                        <PrivateRoute>
-                          <Resources />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/tools/knowledge-database"
-                      element={
-                        <PrivateRoute>
-                          <Resources />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <PrivateRoute>
-                          <Profile />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/journey"
-                      element={
-                        <PrivateRoute>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/demo" element={<Demo />} />
+                  <Route
+                    path="/research-journey"
+                    element={
+                      <PrivateRoute>
+                        <div className="container mx-auto px-4 py-8">
                           <ResearchJourney />
-                        </PrivateRoute>
-                      }
-                    />
-                    <Route
-                      path="/author/:authorId"
-                      element={
-                        <PrivateRoute>
-                          <Profile isAuthor={true} />
-                        </PrivateRoute>
-                      }
-                    />
-                  </Routes>
-                </main>
+                        </div>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <PrivateRoute>
+                        <Profile />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile-setup"
+                    element={
+                      <PrivateRoute>
+                        <ProfileSetup />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/communities"
+                    element={
+                      <PrivateRoute>
+                        <Communities />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/joined-communities"
+                    element={
+                      <PrivateRoute>
+                        <JoinedCommunities />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/community-chat/:id"
+                    element={
+                      <PrivateRoute>
+                        <CommunityChat />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/resources"
+                    element={
+                      <PrivateRoute>
+                        <Resources />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/research-tips"
+                    element={
+                      <PrivateRoute>
+                        <ResearchTips />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/methodology"
+                    element={
+                      <PrivateRoute>
+                        <MethodologyExplorer />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/analysis"
+                    element={
+                      <PrivateRoute>
+                        <AnalysisSuite />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/tools"
+                    element={
+                      <PrivateRoute>
+                        <InvestigationTools />
+                      </PrivateRoute>
+                    }
+                  />
+                </Routes>
               </PageTransition>
+              <FloatingResearchAssistant />
               <Footer />
-              <FloatingResearchAssistant
-                context={`You are a comprehensive research assistant for beginner investigators. 
-                         The current user is ${user?.displayName || "Abm32"}. 
-                         The current date and time is 2025-02-26 08:00:03. 
-                         Their last research activity was: "${lastActivity}". 
-                         ${currentTopics.length > 0 ? `Their current research topics include: ${currentTopics.join(', ')}.` : ''}`}
-                placeholder="Ask about research methodologies, analysis, or guidance..."
-                suggestedPrompts={suggestedPrompts}
-                position="bottom-right"
-                isOpen={isAIAssistantOpen}
-                onClose={() => setIsAIAssistantOpen(!isAIAssistantOpen)}
-              />
             </div>
           </Router>
         </ResearchContext.Provider>

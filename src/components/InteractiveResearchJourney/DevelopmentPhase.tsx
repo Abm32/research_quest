@@ -2,8 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, FileSpreadsheet, BarChart2, Share2 } from 'lucide-react';
 import { ResearchAssistant } from '../AIChat/ResearchAssistant';
+import { researchService } from '../../services/researchService';
 
-export function DevelopmentPhase() {
+interface DevelopmentPhaseProps {
+  projectId: string;
+  onPhaseComplete: () => Promise<void>;
+}
+
+export function DevelopmentPhase({ projectId, onPhaseComplete }: DevelopmentPhaseProps) {
   const [progress, setProgress] = React.useState(45);
   const milestones = [
     { id: '1', title: 'Data Collection', progress: 80 },
@@ -11,6 +17,15 @@ export function DevelopmentPhase() {
     { id: '3', title: 'Initial Findings', progress: 30 },
     { id: '4', title: 'Peer Review', progress: 10 }
   ];
+
+  const handleCompletePhase = async () => {
+    try {
+      await researchService.updateProjectPhase(projectId, 'evaluation');
+      onPhaseComplete();
+    } catch (error) {
+      console.error('Error updating phase:', error);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -96,10 +111,11 @@ export function DevelopmentPhase() {
 
         <motion.button
           whileHover={{ scale: 1.02 }}
+          onClick={handleCompletePhase}
           className="flex items-center justify-center space-x-2 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow"
         >
           <Share2 className="w-5 h-5 text-indigo-600" />
-          <span>Share Progress</span>
+          <span>Complete Phase</span>
         </motion.button>
       </div>
     </div>

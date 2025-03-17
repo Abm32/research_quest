@@ -10,7 +10,8 @@ import {
   Plus,
   Loader2,
   ChevronDown,
-  X
+  X,
+  CheckCircle
 } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import { researchService } from '../services/researchService';
@@ -23,11 +24,32 @@ import { TaskTracking } from './ResearchJourney/TaskTracking';
 import { PointsDisplay } from './ResearchJourney/PointsDisplay';
 import { AchievementsShowcase } from './ResearchJourney/AchievementsShowcase';
 import { RewardsStore } from './ResearchJourney/RewardsStore';
-import type { ResearchProject } from '../types';
+
+type ResearchPhase = 'discovery' | 'design' | 'development' | 'evaluation';
+
+interface PhaseProps {
+  projectId: string;
+  onPhaseComplete: () => Promise<void>;
+}
+
+interface ResearchProject {
+  id: string;
+  title: string;
+  description: string;
+  phase: ResearchPhase;
+  progress: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ProjectCreationProps {
+  onClose: () => void;
+  onProjectCreated: () => Promise<void>;
+}
 
 export default function ResearchJourney() {
   const { user } = useAuth();
-  const [activePhase, setActivePhase] = useState<string | null>(null);
+  const [activePhase, setActivePhase] = useState<ResearchPhase | null>(null);
   const [showProjectCreation, setShowProjectCreation] = useState(false);
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ResearchProject | null>(null);
@@ -37,18 +59,42 @@ export default function ResearchJourney() {
   const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found');
+      setLoading(false);
+      return;
+    }
 
     const fetchProjects = async () => {
       try {
+        console.log('Fetching projects for user:', user.uid);
         setError(null);
         const userProjects = await researchService.getUserProjects(user.uid);
+        console.log('Fetched projects:', userProjects);
         setProjects(userProjects);
-        if (userProjects.length > 0) {
+        
+        // If no projects exist, create a default one
+        if (userProjects.length === 0) {
+          console.log('No projects found, creating default project');
+          const defaultProject = await researchService.createProject(user.uid, {
+            title: 'My Research Project',
+            description: 'Getting started with research',
+            phase: 'discovery',
+            progress: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          console.log('Created default project:', defaultProject);
+          setProjects([defaultProject]);
+          setSelectedProject(defaultProject);
+          setActivePhase('discovery');
+        } else {
           setSelectedProject(userProjects[0]);
+          setActivePhase(userProjects[0].phase);
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error in fetchProjects:', err);
         setError('Failed to load research projects. Please try again later.');
       } finally {
         setLoading(false);
@@ -105,7 +151,28 @@ export default function ResearchJourney() {
     if (activePhase === phaseId) {
       setActivePhase(null);
     } else {
-      setActivePhase(phaseId);
+      setActivePhase(phaseId as ResearchPhase);
+    }
+  };
+
+  const handlePhaseComplete = async (phase: string) => {
+    if (!selectedProject) return;
+    
+    try {
+      const nextPhase = phases.find(p => p.id === phase)?.id || phase;
+      await researchService.updateProjectPhase(selectedProject.id, nextPhase as ResearchPhase);
+      
+      const updatedProject = {
+        ...selectedProject,
+        phase: nextPhase as ResearchPhase,
+        progress: 0
+      };
+      
+      setSelectedProject(updatedProject);
+      setActivePhase(nextPhase as ResearchPhase);
+    } catch (err) {
+      console.error('Error completing phase:', err);
+      setError('Failed to update phase. Please try again.');
     }
   };
 
@@ -113,256 +180,164 @@ export default function ResearchJourney() {
     if (!user) return;
     
     try {
-      setError(null);
       const userProjects = await researchService.getUserProjects(user.uid);
       setProjects(userProjects);
       if (userProjects.length > 0) {
         setSelectedProject(userProjects[0]);
+        setActivePhase('discovery');
       }
       setShowProjectCreation(false);
     } catch (err) {
-      console.error(err);
-      setError('Failed to refresh projects. Please try again.');
+      console.error('Error fetching projects after creation:', err);
+      setError('Failed to load the new project. Please refresh the page.');
     }
+  };
+
+  const renderPhaseComponent = () => {
+    if (!selectedProject || !activePhase) return null;
+
+    const phase = phases.find(p => p.id === activePhase);
+    if (!phase) return null;
+
+    const PhaseComponent = phase.component;
+    return (
+      <PhaseComponent
+        projectId={selectedProject.id}
+        onPhaseComplete={() => handlePhaseComplete(activePhase)}
+      />
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="ml-3 text-gray-600">Loading your research journey...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 mb-4">{error}</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!selectedProject) {
+    return (
+      <div className="text-center py-8">
+        <button
+          onClick={() => setShowProjectCreation(true)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+        >
+          Create Your First Research Project
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      {/* Tabs */}
-      <div className="flex overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 border-b">
-        <div className="flex space-x-4 min-w-full sm:min-w-0">
-          <button
-            onClick={() => setActiveTab('journey')}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
-              activeTab === 'journey'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-indigo-600'
-            }`}
-          >
-            Research Journey
-          </button>
-          <button
-            onClick={() => setActiveTab('points')}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
-              activeTab === 'points'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-indigo-600'
-            }`}
-          >
-            Points
-          </button>
-          <button
-            onClick={() => setActiveTab('achievements')}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
-              activeTab === 'achievements'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-indigo-600'
-            }`}
-          >
-            Achievements
-          </button>
-          <button
-            onClick={() => setActiveTab('rewards')}
-            className={`whitespace-nowrap px-4 py-2 text-sm font-medium ${
-              activeTab === 'rewards'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-indigo-600'
-            }`}
-          >
-            Rewards
-          </button>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Research Journey</h1>
+        <p className="text-gray-600">Track your progress through the research process.</p>
       </div>
 
-      {activeTab === 'journey' && (
-        <>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 my-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Research Journey</h1>
-              <p className="text-gray-600 text-sm sm:text-base">Track your progress through each phase of your research</p>
-            </div>
+      {showProjectCreation ? (
+        <ProjectCreation
+          onClose={() => setShowProjectCreation(false)}
+          onProjectCreated={handleProjectCreated}
+        />
+      ) : (
+        <div className="space-y-8">
+          {/* Project Selector */}
+          <div className="relative">
             <button
-              onClick={() => setShowProjectCreation(true)}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+              onClick={() => setShowProjectSelector(!showProjectSelector)}
+              className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:bg-gray-50"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Project</span>
+              <span className="font-medium">{selectedProject.title}</span>
+              <ChevronDown className="w-5 h-5" />
             </button>
+            {showProjectSelector && (
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg">
+                {projects.map(project => (
+                  <button
+                    key={project.id}
+                    onClick={() => {
+                      setSelectedProject(project);
+                      setActivePhase(project.phase);
+                      setShowProjectSelector(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                  >
+                    {project.title}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setShowProjectSelector(false);
+                    setShowProjectCreation(true);
+                  }}
+                  className="w-full text-left px-4 py-2 text-indigo-600 hover:bg-gray-50"
+                >
+                  <Plus className="w-5 h-5 inline-block mr-2" />
+                  New Project
+                </button>
+              </div>
+            )}
           </div>
 
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-6">
-              {error}
-            </div>
-          )}
+          {/* Phase Navigation */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {phases.map(phase => (
+              <button
+                key={phase.id}
+                onClick={() => handlePhaseClick(phase.id)}
+                className={`p-4 rounded-lg text-left transition-colors ${
+                  phase.status === 'locked'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : phase.id === activePhase
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : 'bg-white hover:bg-gray-50'
+                }`}
+                disabled={phase.status === 'locked'}
+              >
+                <phase.icon className="w-6 h-6 mb-2" />
+                <h3 className="font-medium">{phase.title}</h3>
+                <p className="text-sm text-gray-600">{phase.description}</p>
+                <div className="mt-2 h-1 bg-gray-200 rounded-full">
+                  <div
+                    className="h-full bg-indigo-600 rounded-full transition-all"
+                    style={{ width: `${phase.progress}%` }}
+                  />
+                </div>
+              </button>
+            ))}
+          </div>
 
-          {showProjectCreation ? (
-            <ProjectCreation onProjectCreated={handleProjectCreated} />
-          ) : (
-            <>
-              {projects.length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-12"
-                >
-                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Start Your Research Journey
-                  </h2>
-                  <p className="text-gray-600 mb-4 text-sm">
-                    Create your first research project to begin
-                  </p>
-                  <button
-                    onClick={() => setShowProjectCreation(true)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-                  >
-                    Create Your First Project
-                  </button>
-                </motion.div>
-              ) : (
-                <>
-                  {/* Project Selection */}
-                  {projects.length > 1 && (
-                    <div className="mb-6">
-                      <button
-                        onClick={() => setShowProjectSelector(!showProjectSelector)}
-                        className="w-full flex items-center justify-between p-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-                      >
-                        <span>{selectedProject?.title}</span>
-                        <ChevronDown className={`w-5 h-5 transition-transform ${showProjectSelector ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      <AnimatePresence>
-                        {showProjectSelector && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
-                          >
-                            {projects.map((project) => (
-                              <button
-                                key={project.id}
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  setShowProjectSelector(false);
-                                }}
-                                className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors ${
-                                  project.id === selectedProject?.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700'
-                                }`}
-                              >
-                                {project.title}
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
-
-                  {/* Phases */}
-                  <div className="space-y-4 sm:space-y-6">
-                    {phases.map((phase, index) => (
-                      <motion.div
-                        key={phase.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className={`bg-white rounded-xl shadow-sm overflow-hidden
-                          ${phase.status === 'locked' ? 'opacity-50' : ''}`}
-                      >
-                        <div 
-                          className={`p-4 sm:p-6 cursor-pointer transition-colors
-                            ${phase.status !== 'locked' ? 'hover:bg-gray-50' : ''}
-                            ${activePhase === phase.id ? 'bg-gray-50' : ''}`}
-                          onClick={() => phase.status !== 'locked' && handlePhaseClick(phase.id)}
-                        >
-                          <div className="flex items-start space-x-4">
-                            <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0
-                              ${phase.status === 'completed' ? 'bg-green-100 text-green-600' :
-                                phase.status === 'in-progress' ? 'bg-indigo-100 text-indigo-600' :
-                                'bg-gray-100 text-gray-600'}`}
-                            >
-                              <phase.icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h3 className="text-base sm:text-lg font-semibold text-gray-900">{phase.title}</h3>
-                                {phase.status === 'completed' && (
-                                  <span className="px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs">
-                                    Completed
-                                  </span>
-                                )}
-                                {phase.status === 'in-progress' && (
-                                  <span className="px-2 py-1 bg-indigo-100 text-indigo-600 rounded-full text-xs">
-                                    In Progress
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-sm text-gray-600 line-clamp-2">{phase.description}</p>
-                              <div className="mt-4">
-                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-500
-                                      ${phase.status === 'completed' ? 'bg-green-500' :
-                                        phase.status === 'in-progress' ? 'bg-indigo-500' :
-                                        'bg-gray-300'}`}
-                                    style={{ width: `${phase.progress}%` }}
-                                  />
-                                </div>
-                                <div className="mt-2 flex justify-between text-sm text-gray-500">
-                                  <span>{phase.progress}% Complete</span>
-                                  {phase.status !== 'locked' && (
-                                    <button 
-                                      className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-700"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePhaseClick(phase.id);
-                                      }}
-                                    >
-                                      <span>{activePhase === phase.id ? 'Hide Details' : 'Continue'}</span>
-                                      <ChevronRight className={`w-4 h-4 transition-transform ${activePhase === phase.id ? 'rotate-90' : ''}`} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {activePhase === phase.id && selectedProject && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="border-t border-gray-100 p-4 sm:p-6"
-                          >
-                            <phase.component projectId={selectedProject.id} />
-                            <TaskTracking projectId={selectedProject.id} />
-                          </motion.div>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </>
+          {/* Active Phase Component */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activePhase}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderPhaseComponent()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       )}
-
-      {activeTab === 'points' && <PointsDisplay />}
-      {activeTab === 'achievements' && <AchievementsShowcase />}
-      {activeTab === 'rewards' && <RewardsStore />}
     </div>
   );
 }

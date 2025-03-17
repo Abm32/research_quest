@@ -24,6 +24,7 @@ export default function Navbar() {
     { path: '/communities', label: 'Communities' },
     { path: '/resources', label: 'Resources' },
     { path: '/journey', label: 'Research Journey' },
+    { path: '/analysis', label: 'Analysis Suite' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

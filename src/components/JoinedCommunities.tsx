@@ -92,7 +92,7 @@ export default function JoinedCommunities() {
                     <span>{community.member_count} members</span>
                   </div>
                   <button
-                    onClick={() => navigate(`/communities/${community.id}/chat`)}
+                    onClick={() => navigate(`/community-chat/${community.id}`)}
                     className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
                     <MessageCircle className="w-4 h-4" />

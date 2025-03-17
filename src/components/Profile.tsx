@@ -199,7 +199,7 @@ const JoinedCommunitiesSection = memo(() => {
             <h2 className="text-lg font-semibold text-gray-800">Your Research Communities</h2>
           </div>
           <Link
-            to="/communities/joined"
+            to="/joined-communities"
             className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center"
           >
             View All <ChevronRight className="w-4 h-4 ml-1" />
@@ -234,7 +234,7 @@ const JoinedCommunitiesSection = memo(() => {
                   <p className="text-sm text-gray-600">{community.member_count || 0} members</p>
                 </div>
                 <Link
-                  to={`/communities/${community.id}/chat`}
+                  to={`/community-chat/${community.id}`}
                   className="flex-shrink-0 flex items-center space-x-1 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
