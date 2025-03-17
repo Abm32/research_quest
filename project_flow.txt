@@ -1,0 +1,190 @@
+ResearchQuest Project Flow
+=======================
+
+1. Project Overview
+------------------
+ResearchQuest appears to be a TypeScript-based web application using modern web technologies including:
+- Vite as the build tool
+- React for the frontend
+- Tailwind CSS for styling
+- Firebase and Supabase for backend services
+- TypeScript for type safety
+
+2. Project Structure
+-------------------
+The project follows a modular architecture with clear separation of concerns:
+
+/src
+├── api/         - API integration and backend communication
+├── components/  - Reusable UI components
+├── config/      - Configuration files and environment setup
+├── hooks/       - Custom React hooks
+├── services/    - Business logic and service layer
+├── store/       - State management
+├── types/       - TypeScript type definitions
+└── App.tsx      - Main application component
+
+3. Technology Stack
+------------------
+Frontend:
+- React (TypeScript)
+- Tailwind CSS for styling
+- Vite for development and building
+
+Backend Services:
+- Firebase (with custom security rules)
+- Supabase integration
+
+Development Tools:
+- ESLint for code linting
+- PostCSS for CSS processing
+- TypeScript for type checking
+
+4. Application Flow
+------------------
+1. Entry Point (main.tsx):
+   - Application initialization
+   - React rendering setup
+   - Global styles and configurations
+
+2. Main Application (App.tsx):
+   - Core application logic
+   - Routing and navigation
+   - Layout management
+
+3. Component Structure:
+   - Modular components in /components
+   - Custom hooks for reusable logic
+   - Type definitions for data models
+
+4. State Management:
+   - Centralized state management in /store
+   - Service layer for business logic
+
+5. Backend Integration:
+   - Firebase rules for security
+   - Supabase for database operations
+   - API integrations for external services
+
+5. Development Setup
+-------------------
+The project uses:
+- Node.js package management
+- TypeScript configuration for both app and Node
+- Environment variables (.env)
+- Vercel for deployment
+
+6. Security
+-----------
+- Custom Firebase security rules
+- Environment variable management
+- Proper authentication flow
+
+7. Detailed Algorithm
+--------------------
+• 1. Start
+• 2. Import and Initialize Required Packages and Services
+    a. React and React DOM
+    b. Firebase Services
+        - Authentication
+        - Firestore
+        - Storage
+    c. Supabase Client
+    d. UI Components and Libraries
+        - Tailwind CSS
+        - Custom Components
+    e. State Management Tools
+    f. Type Definitions
+
+• 3. Initialize Application Services
+    a. Create Firebase Instance
+        - Configure Firebase with environment variables
+        - Initialize Firebase Auth
+        - Initialize Firestore
+    b. Setup Supabase Client
+        - Configure with API keys
+        - Initialize connection
+    c. Setup State Management
+        - Initialize global state
+        - Setup state persistence
+
+• 4. Define Core Data Models
+    a. User Profile
+        - UID
+        - Name
+        - Email
+        - Profile Settings
+    b. Research Data
+        - Research ID
+        - Title
+        - Description
+        - Status
+    c. Quest Data
+        - Quest ID
+        - Requirements
+        - Progress
+        - Completion Status
+
+• 5. Authentication Flow
+    a. Check Authentication Status
+    b. If Not Authenticated:
+        b.1. Display Login Options
+        b.2. Handle Authentication Method Selection
+        b.3. Process Authentication
+        b.4. Create/Update User Profile
+    c. If Authenticated:
+        c.1. Load User Data
+        c.2. Initialize User Session
+        c.3. Setup User Preferences
+
+• 6. Main Application Flow
+    a. Initialize Router
+    b. Load Application Shell
+    c. Setup Navigation Guards
+    d. Initialize Main Views:
+        d.1. Dashboard
+        d.2. Research Management
+        d.3. Quest Management
+        d.4. Profile Management
+
+• 7. Data Management
+    a. Define Data Operations
+        - Create
+        - Read
+        - Update
+        - Delete
+    b. Setup Real-time Listeners
+    c. Implement Data Validation
+    d. Handle Data Synchronization
+
+• 8. User Interaction Handling
+    a. Process User Input
+    b. Validate Input Data
+    c. Update UI State
+    d. Trigger Backend Operations
+    e. Handle Response/Errors
+
+• 9. Error Handling
+    a. Define Error Types
+    b. Implement Error Boundaries
+    c. Setup Error Logging
+    d. Display User-Friendly Error Messages
+
+• 10. State Updates
+    a. Monitor State Changes
+    b. Update UI Components
+    c. Sync with Backend
+    d. Handle Loading States
+
+• 11. Cleanup and Resource Management
+    a. Implement Component Cleanup
+    b. Handle Service Disconnection
+    c. Clear Sensitive Data
+    d. Release Resources
+
+• 12. End
+    a. Save Application State
+    b. Close Connections
+    c. Clear Temporary Data
+
+This document provides a high-level overview of the project structure and flow. For detailed implementation details, refer to specific components and documentation within the codebase. 

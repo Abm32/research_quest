@@ -201,6 +201,7 @@ function App() {
                     <Route path="/demo" element={<Demo />} />
                     <Route path="/tips" element={<ResearchTips />} />
                     <Route path="/methodologies" element={<MethodologyExplorer />} />
+                    <Route path="/tools/methodology-builder" element={<MethodologyExplorer />} />
                     <Route path="/tools/:toolId" element={<InvestigationTools />} />
                     <Route
                       path="/profile/setup"

@@ -67,8 +67,8 @@ export function ProfileSetup() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="Student">Student</option>
-              <option value="Researcher">Researcher</option>
-              <option value="Mentor">Mentor</option>
+              {/*<option value="Researcher">Researcher</option>
+              <option value="Mentor">Mentor</option>*/}
               <option value="Administrator">Administrator</option>
             </select>
           </div>

@@ -131,9 +131,9 @@ export default function Home() {
               transition={{ duration: 0.5 }}
               className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-100 to-white rounded-3xl"
             />
-            
+
             {/* Background elements that suggest investigation */}
-            <motion.div 
+            <motion.div
               className="absolute -z-5 top-10 left-10 opacity-10"
               initial={{ opacity: 0, rotate: -10 }}
               animate={{ opacity: 0.1, rotate: 0 }}
@@ -141,8 +141,8 @@ export default function Home() {
             >
               <Map className="w-32 h-32 text-slate-600" />
             </motion.div>
-            
-            <motion.div 
+
+            <motion.div
               className="absolute -z-5 bottom-10 right-10 opacity-10"
               initial={{ opacity: 0, rotate: 10 }}
               animate={{ opacity: 0.1, rotate: 0 }}
@@ -177,7 +177,7 @@ export default function Home() {
               transition={{ delay: 0.2 }}
               className="text-xl text-slate-600 max-w-2xl mx-auto"
             >
-              Begin your investigative journey with structured guidance, research tools, and a 
+              Begin your investigative journey with structured guidance, research tools, and a
               community of explorers to help you develop your expertise.
             </motion.p>
 
@@ -218,7 +218,7 @@ export default function Home() {
             <div className="relative">
               {/* Connecting line */}
               <div className="absolute top-1/2 left-0 right-0 h-1 bg-teal-200 transform -translate-y-1/2 hidden md:block"></div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {[
                   { step: "1", title: "Question", icon: Lightbulb, description: "Formulate your research question" },
@@ -339,7 +339,7 @@ export default function Home() {
             <p className="text-center text-slate-600 max-w-3xl mx-auto">
               Discover our suite of investigative tools designed to help you explore and analyze data with confidence.
             </p>
-            
+
             <div className="grid md:grid-cols-3 gap-8 mt-8">
               {[
                 {
@@ -370,7 +370,7 @@ export default function Home() {
                   </div>
                   <h3 className="text-xl font-semibold text-slate-800">{tool.title}</h3>
                   <p className="mt-2 text-slate-600">{tool.description}</p>
-                  <Link 
+                  <Link
                     to={`/tools/${tool.title.toLowerCase().replace(' ', '-')}`}
                     className="mt-4 inline-flex items-center text-teal-600 hover:text-teal-700"
                   >
@@ -397,7 +397,7 @@ export default function Home() {
             >
               <Search className="w-40 h-40" />
             </motion.div>
-            
+
             <div className="text-center space-y-6 relative z-10">
               <h2 className="text-3xl font-bold text-white">Ready to Start Your Investigation?</h2>
               <p className="text-slate-100 max-w-2xl mx-auto">
@@ -422,119 +422,119 @@ export default function Home() {
               </div>
             </div>
           </motion.section>
-          
-{/* Research Tips Section - with click interaction */}
-<motion.section
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.7 }}
-  className="max-w-6xl mx-auto"
->
-  <h2 className="text-2xl font-bold text-center text-slate-800 mb-8">Research Tips for Beginners</h2>
-  <div className="grid md:grid-cols-2 gap-8">
-    {[
-      {
-        title: "Start with clear questions",
-        content: "Define specific research questions to guide your investigation and keep your research focused.",
-        expandedContent: "Creating well-defined research questions helps you stay on track and avoid common pitfalls. Try framing questions that are specific, measurable, and achievable within your timeframe. Example: Instead of 'How does climate affect plants?' try 'How does seasonal rainfall variation affect growth rates of native grasses in the Pacific Northwest?'"
-      },
-      {
-        title: "Use multiple sources",
-        content: "Cross-reference information from various credible sources to ensure accuracy and reduce bias.",
-        expandedContent: "When gathering information, aim to include academic journals, books, primary sources, and reputable websites. Compare how different sources address the same topic to identify consensus views and points of disagreement. Our platform provides access to curated databases where you can find peer-reviewed resources on your topic."
-      },
-      {
-        title: "Take structured notes",
-        content: "Organize your findings with systematic note-taking to track insights and connections.",
-        expandedContent: "Effective note-taking systems include the Cornell method, mind mapping, or digital tools like our built-in research notebook. Whatever system you choose, be consistent in recording source information, key points, and your own reflections. This makes pattern recognition and synthesis much easier when you begin analyzing your findings."
-      },
-      {
-        title: "Ask for feedback",
-        content: "Share your research with peers and mentors to gain different perspectives and improve.",
-        expandedContent: "Getting feedback early and often helps identify blind spots in your research approach. Our platform allows you to share drafts with selected peers or mentors, or post specific questions to relevant research communities. Consider scheduling regular check-ins with a research advisor or joining a peer review group."
-      },
-    ].map((tip, index) => {
-      // Add state for managing expansion of each tip
-      const [isExpanded, setIsExpanded] = React.useState(false);
-      
-      return (
-        <motion.div
-          key={tip.title}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 + index * 0.1 }}
-          className={`flex flex-col p-4 bg-white rounded-xl border border-slate-200 cursor-pointer transition-all duration-300 ${isExpanded ? 'shadow-md' : 'hover:shadow-sm'}`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-start">
-            <div className={`text-white rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1 transition-colors ${isExpanded ? 'bg-teal-600' : 'bg-teal-100 text-teal-700'}`}>
-              {index + 1}
-            </div>
-            <div className="ml-4 flex-grow">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-slate-800">{tip.title}</h3>
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  className={`text-slate-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </div>
-              <p className="text-slate-600 mt-1">{tip.content}</p>
-            </div>
-          </div>
-          
-          {/* Expanded content */}
-          <motion.div 
-            className="mt-4 ml-12 text-slate-700 bg-slate-50 p-4 rounded-lg"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ 
-              height: isExpanded ? 'auto' : 0,
-              opacity: isExpanded ? 1 : 0,
-              display: isExpanded ? 'block' : 'none'
-            }}
-            transition={{ duration: 0.3 }}
+
+          {/* Research Tips Section - with click interaction */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="max-w-6xl mx-auto"
           >
-            <p>{tip.expandedContent}</p>
-            
-            {/* Example resource relevant to the tip */}
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              <h4 className="text-sm font-medium text-teal-700">Recommended Resource:</h4>
-              <Link 
-                to={`/resources/${index + 1}`}
-                onClick={(e) => e.stopPropagation()} 
-                className="text-sm text-blue-600 hover:underline flex items-center mt-1"
+            <h2 className="text-2xl font-bold text-center text-slate-800 mb-8">Research Tips for Beginners</h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              {[
+                {
+                  title: "Start with clear questions",
+                  content: "Define specific research questions to guide your investigation and keep your research focused.",
+                  expandedContent: "Creating well-defined research questions helps you stay on track and avoid common pitfalls. Try framing questions that are specific, measurable, and achievable within your timeframe. Example: Instead of 'How does climate affect plants?' try 'How does seasonal rainfall variation affect growth rates of native grasses in the Pacific Northwest?'"
+                },
+                {
+                  title: "Use multiple sources",
+                  content: "Cross-reference information from various credible sources to ensure accuracy and reduce bias.",
+                  expandedContent: "When gathering information, aim to include academic journals, books, primary sources, and reputable websites. Compare how different sources address the same topic to identify consensus views and points of disagreement. Our platform provides access to curated databases where you can find peer-reviewed resources on your topic."
+                },
+                {
+                  title: "Take structured notes",
+                  content: "Organize your findings with systematic note-taking to track insights and connections.",
+                  expandedContent: "Effective note-taking systems include the Cornell method, mind mapping, or digital tools like our built-in research notebook. Whatever system you choose, be consistent in recording source information, key points, and your own reflections. This makes pattern recognition and synthesis much easier when you begin analyzing your findings."
+                },
+                {
+                  title: "Ask for feedback",
+                  content: "Share your research with peers and mentors to gain different perspectives and improve.",
+                  expandedContent: "Getting feedback early and often helps identify blind spots in your research approach. Our platform allows you to share drafts with selected peers or mentors, or post specific questions to relevant research communities. Consider scheduling regular check-ins with a research advisor or joining a peer review group."
+                },
+              ].map((tip, index) => {
+                // Add state for managing expansion of each tip
+                const [isExpanded, setIsExpanded] = React.useState(false);
+
+                return (
+                  <motion.div
+                    key={tip.title}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 + index * 0.1 }}
+                    className={`flex flex-col p-4 bg-white rounded-xl border border-slate-200 cursor-pointer transition-all duration-300 ${isExpanded ? 'shadow-md' : 'hover:shadow-sm'}`}
+                    onClick={() => setIsExpanded(!isExpanded)}
+                  >
+                    <div className="flex items-start">
+                      <div className={`text-white rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1 transition-colors ${isExpanded ? 'bg-teal-600' : 'bg-teal-100 text-teal-700'}`}>
+                        {index + 1}
+                      </div>
+                      <div className="ml-4 flex-grow">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-medium text-slate-800">{tip.title}</h3>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className={`text-slate-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''}`}
+                          >
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </div>
+                        <p className="text-slate-600 mt-1">{tip.content}</p>
+                      </div>
+                    </div>
+
+                    {/* Expanded content */}
+                    <motion.div
+                      className="mt-4 ml-12 text-slate-700 bg-slate-50 p-4 rounded-lg"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{
+                        height: isExpanded ? 'auto' : 0,
+                        opacity: isExpanded ? 1 : 0,
+                        display: isExpanded ? 'block' : 'none'
+                      }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <p>{tip.expandedContent}</p>
+
+                      {/* Example resource relevant to the tip */}
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <h4 className="text-sm font-medium text-teal-700">Recommended Resource:</h4>
+                        <Link
+                          to={`/resources/${index + 1}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sm text-blue-600 hover:underline flex items-center mt-1"
+                        >
+                          {index === 0 && "How to Formulate Effective Research Questions"}
+                          {index === 1 && "Guide to Evaluating Research Sources"}
+                          {index === 2 && "Digital Note-Taking Systems for Researchers"}
+                          {index === 3 && "Building Your Research Feedback Network"}
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Link>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                );
+              })}
+            </div>
+            <div className="mt-8 text-center">
+              <Link
+                to="/tips"
+                className="inline-flex items-center text-teal-600 hover:text-teal-700 font-medium"
               >
-                {index === 0 && "How to Formulate Effective Research Questions"}
-                {index === 1 && "Guide to Evaluating Research Sources"}
-                {index === 2 && "Digital Note-Taking Systems for Researchers"}
-                {index === 3 && "Building Your Research Feedback Network"}
-                <ArrowRight className="w-3 h-3 ml-1" />
+                <span>View all research tips</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
               </Link>
             </div>
-          </motion.div>
-        </motion.div>
-      );
-    })}
-  </div>
-  <div className="mt-8 text-center">
-    <Link 
-      to="/tips"
-      className="inline-flex items-center text-teal-600 hover:text-teal-700 font-medium"
-    >
-      <span>View all research tips</span>
-      <ArrowRight className="w-4 h-4 ml-1" />
-    </Link>
-  </div>
-</motion.section>
+          </motion.section>
         </div>
       </main>
     </div>

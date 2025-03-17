@@ -3,13 +3,13 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { db, auth } from '../config/firebase';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  query, 
-  where, 
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  query,
+  where,
   getDocs,
   updateDoc,
   Timestamp,
@@ -21,10 +21,10 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
-import { 
-  Award, 
-  BookOpen, 
-  Star, 
+import {
+  Award,
+  BookOpen,
+  Star,
   Trophy,
   Briefcase,
   GraduationCap,
@@ -109,9 +109,9 @@ const CLOUDINARY_CLOUD_NAME = 'dsahhcgq6';
 const CLOUDINARY_API_KEY = '259372399271311';
 
 // Memoized ProfileStat component for better performance
-const ProfileStat: React.FC<{ 
-  icon: React.ReactNode; 
-  label: string; 
+const ProfileStat: React.FC<{
+  icon: React.ReactNode;
+  label: string;
   value: string | number;
   isLoading?: boolean;
 }> = memo(({ icon, label, value, isLoading = false }) => (
@@ -146,13 +146,13 @@ const JoinedCommunitiesSection = memo(() => {
           where('members', 'array-contains', user.uid),
           limit(4)  // Limit to 4 for better performance
         );
-        
+
         const querySnapshot = await getDocs(q);
         const joinedCommunities = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Community[];
-        
+
         setCommunities(joinedCommunities);
       } catch (error) {
         console.error('Error fetching joined communities:', error);
@@ -206,7 +206,7 @@ const JoinedCommunitiesSection = memo(() => {
           </Link>
         </div>
       </div>
-      
+
       <div className="p-6">
         {communities.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
@@ -268,9 +268,9 @@ const ResearchActivity = memo(() => {
           orderBy('timestamp', 'desc'),
           limit(3)
         );
-        
+
         const querySnapshot = await getDocs(q);
-        
+
         if (querySnapshot.empty) {
           // Create default activities if none exist
           const defaultActivities = [
@@ -291,26 +291,26 @@ const ResearchActivity = memo(() => {
               icon_type: 'Award'
             }
           ];
-          
-          const activityPromises = defaultActivities.map(activity => 
+
+          const activityPromises = defaultActivities.map(activity =>
             addDoc(collection(db, 'user_activities'), activity)
           );
-          
+
           const newActivityRefs = await Promise.all(activityPromises);
-          
+
           // Create activities data with IDs
           const newActivities = defaultActivities.map((activity, index) => ({
             id: newActivityRefs[index].id,
             ...activity
           }));
-          
+
           setActivities(newActivities as ResearchActivityItem[]);
         } else {
           const fetchedActivities = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           })) as ResearchActivityItem[];
-          
+
           setActivities(fetchedActivities);
         }
       } catch (error) {
@@ -339,14 +339,14 @@ const ResearchActivity = memo(() => {
   // Helper to format timestamps
   const formatDate = useCallback((timestamp: Timestamp | Date) => {
     if (!timestamp) return 'Just now';
-    
-    const date = timestamp instanceof Timestamp 
-      ? timestamp.toDate() 
+
+    const date = timestamp instanceof Timestamp
+      ? timestamp.toDate()
       : new Date(timestamp);
-      
+
     const now = new Date();
     const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays === 0) return 'Today';
     if (diffInDays === 1) return 'Yesterday';
     if (diffInDays < 7) return `${diffInDays} days ago`;
@@ -391,7 +391,7 @@ const ResearchActivity = memo(() => {
           <h2 className="text-lg font-semibold text-gray-800">Research Activity</h2>
         </div>
       </div>
-      
+
       <div className="p-6">
         {activities.length === 0 ? (
           <div className="text-center py-6">
@@ -419,7 +419,7 @@ const ResearchActivity = memo(() => {
             ))}
           </div>
         )}
-        
+
         <div className="mt-6">
           <Link
             to="/activity"
@@ -452,9 +452,9 @@ const AchievementsSection = memo(() => {
           orderBy('earned_date', 'desc'),
           limit(3)
         );
-        
+
         const snapshot = await getDocs(achievementsQuery);
-        
+
         if (snapshot.empty) {
           // Create default achievements for new users
           const defaultAchievements = [
@@ -486,24 +486,24 @@ const AchievementsSection = memo(() => {
               color_theme: 'green'
             }
           ];
-          
-          const achievementPromises = defaultAchievements.map(achievement => 
+
+          const achievementPromises = defaultAchievements.map(achievement =>
             addDoc(collection(db, 'user_achievements'), achievement)
           );
-          
+
           const newAchievementRefs = await Promise.all(achievementPromises);
           const newAchievements = defaultAchievements.map((achievement, index) => ({
             id: newAchievementRefs[index].id,
             ...achievement
           }));
-          
+
           setAchievements(newAchievements as Achievement[]);
         } else {
           const fetchedAchievements = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           })) as Achievement[];
-          
+
           setAchievements(fetchedAchievements);
         }
       } catch (error) {
@@ -512,7 +512,7 @@ const AchievementsSection = memo(() => {
         setLoading(false);
       }
     };
-    
+
     fetchAchievements();
   }, [user]);
 
@@ -548,7 +548,7 @@ const AchievementsSection = memo(() => {
           <h2 className="text-lg font-semibold text-gray-800">Research Achievements</h2>
         </div>
       </div>
-      
+
       <div className="p-6">
         {achievements.length > 0 ? (
           <div className="space-y-4">
@@ -563,7 +563,7 @@ const AchievementsSection = memo(() => {
                   default: return <Star className="h-5 w-5 text-amber-700" />;
                 }
               };
-              
+
               // Dynamic gradient based on color theme
               const getBgGradient = () => {
                 switch (achievement.color_theme) {
@@ -575,7 +575,7 @@ const AchievementsSection = memo(() => {
                   default: return 'from-amber-50 to-amber-100';
                 }
               };
-              
+
               // Dynamic icon background color
               const getIconBg = () => {
                 switch (achievement.color_theme) {
@@ -587,10 +587,10 @@ const AchievementsSection = memo(() => {
                   default: return 'bg-amber-200';
                 }
               };
-              
+
               return (
-                <div 
-                  key={achievement.id} 
+                <div
+                  key={achievement.id}
                   className={`flex items-center space-x-3 p-3 bg-gradient-to-r ${getBgGradient()} rounded-lg`}
                 >
                   <div className={`${getIconBg()} p-2 rounded-full`}>
@@ -616,7 +616,7 @@ const AchievementsSection = memo(() => {
             </Link>
           </div>
         )}
-        
+
         <div className="mt-6 text-center">
           <Link
             to="/achievements"
@@ -653,7 +653,7 @@ const AccountInfoCard = memo(({ profile }: { profile: UserProfile }) => {
           </span>
         </div>
       </div>
-      
+
       <div className="p-6 space-y-4">
         <div className="flex justify-between items-center pb-2 border-b border-gray-100">
           <span className="text-gray-600">Last login</span>
@@ -667,8 +667,8 @@ const AccountInfoCard = memo(({ profile }: { profile: UserProfile }) => {
           <span className="text-gray-600">Profile completion</span>
           <div className="flex items-center">
             <div className="w-32 bg-gray-200 rounded-full h-2 mr-2">
-              <div 
-                className="bg-indigo-600 h-2 rounded-full" 
+              <div
+                className="bg-indigo-600 h-2 rounded-full"
                 style={{ width: `${profile.profile_completion || 0}%` }}
               />
             </div>
@@ -704,7 +704,7 @@ export default function Profile() {
   const [newExpertise, setNewExpertise] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+
   // User stats from Firebase
   const [stats, setStats] = useState<UserStats>({
     publications: 0,
@@ -718,7 +718,7 @@ export default function Profile() {
   const calculateProfileCompletion = useCallback((profile: UserProfile): number => {
     let completionScore = 0;
     const totalFields = 7;  // Total fields counting toward completion
-    
+
     if (profile.photoURL) completionScore += 1;
     if (profile.bio && profile.bio.length > 10) completionScore += 1;
     if (profile.interests && profile.interests.length > 0) completionScore += 1;
@@ -726,41 +726,41 @@ export default function Profile() {
     if (profile.location) completionScore += 1;
     if (profile.email) completionScore += 1;
     if (profile.website) completionScore += 1;
-    
+
     return Math.round((completionScore / totalFields) * 100);
   }, []);
 
   // Fetch user stats from Firebase
   useEffect(() => {
     if (!user) return;
-    
+
     const fetchUserStats = async () => {
       try {
         // Get publication count
         const publicationsRef = collection(db, 'publications');
         const publicationsQuery = query(publicationsRef, where('author_id', '==', user.uid));
         const publicationsSnapshot = await getDocs(publicationsQuery);
-        
+
         // Get communities count
         const communitiesRef = collection(db, 'communities');
         const communitiesQuery = query(communitiesRef, where('members', 'array-contains', user.uid));
         const communitiesSnapshot = await getDocs(communitiesQuery);
-        
+
         // Get badges
         const badgesRef = collection(db, 'user_badges');
         const badgesQuery = query(badgesRef, where('user_id', '==', user.uid));
         let badgesSnapshot = await getDocs(badgesQuery);
-        
+
         // Get projects count
         const projectsRef = collection(db, 'research_projects');
         const projectsQuery = query(projectsRef, where('members', 'array-contains', user.uid));
         const projectsSnapshot = await getDocs(projectsQuery);
-        
+
         // If no badges exist, create default badges
         if (badgesSnapshot.empty) {
           // Create default badges for new users
           const defaultBadges = [
-            { 
+            {
               name: 'Profile Creator',
               description: 'Created a profile on Research Quest',
               awarded_date: serverTimestamp(),
@@ -768,17 +768,17 @@ export default function Profile() {
               badge_type: 'bronze'
             }
           ];
-          
-          const badgePromises = defaultBadges.map(badge => 
+
+          const badgePromises = defaultBadges.map(badge =>
             addDoc(collection(db, 'user_badges'), badge)
           );
-          
+
           await Promise.all(badgePromises);
-          
+
           // Re-fetch badges count
           badgesSnapshot = await getDocs(badgesQuery);
         }
-        
+
         // Update stats
         setStats({
           publications: publicationsSnapshot.size,
@@ -787,13 +787,13 @@ export default function Profile() {
           projects: projectsSnapshot.size,
           loading: false
         });
-        
+
       } catch (error) {
         console.error('Error fetching user stats:', error);
         setStats(prev => ({ ...prev, loading: false }));
       }
     };
-    
+
     fetchUserStats();
   }, [user]);
 
@@ -812,7 +812,7 @@ export default function Profile() {
         if (docSnap.exists()) {
           const userData = docSnap.data() as UserProfile;
           const profileCompletionScore = calculateProfileCompletion(userData);
-          
+
           setProfile({
             role: userData.role || 'Student',
             interests: userData.interests || [],
@@ -827,7 +827,7 @@ export default function Profile() {
             last_login: serverTimestamp(),
             profile_completion: profileCompletionScore,
           });
-          
+
           // Update last login time
           await updateDoc(userRef, {
             last_login: serverTimestamp()
@@ -901,10 +901,10 @@ export default function Profile() {
       }
 
       const data = await response.json();
-      
+
       if (data.secure_url) {
         setProfile(prev => ({ ...prev, photoURL: data.secure_url }));
-        
+
         // Update Firebase auth profile
         await updateProfile(user, {
           photoURL: data.secure_url
@@ -934,14 +934,14 @@ export default function Profile() {
     try {
       // Calculate new profile completion score
       const profileCompletionScore = calculateProfileCompletion(profile);
-      
+
       // Prepare profile data with updated timestamp
       const profileData = {
         ...profile,
         updatedAt: serverTimestamp(),
         profile_completion: profileCompletionScore
       };
-      
+
       // Update the profile in Firestore
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, profileData);
@@ -956,17 +956,17 @@ export default function Profile() {
       setIsEditing(false);
       setError('Profile updated successfully!');
       setTimeout(() => setError(null), 3000);
-      
+
       // Create profile completion achievement if applicable
       if (profileCompletionScore > 50) {
         const achievementRef = collection(db, 'user_achievements');
         const achievementQuery = query(
-          achievementRef, 
+          achievementRef,
           where('user_id', '==', user.uid),
           where('title', '==', 'Profile Master')
         );
         const achievementSnapshot = await getDocs(achievementQuery);
-        
+
         if (achievementSnapshot.empty) {
           await addDoc(collection(db, 'user_achievements'), {
             title: 'Profile Master',
@@ -1041,11 +1041,10 @@ export default function Profile() {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-4 rounded-lg flex items-center ${
-              error.includes('success') 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
+            className={`p-4 rounded-lg flex items-center ${error.includes('success')
+                ? 'bg-green-50 text-green-700 border border-green-200'
                 : 'bg-red-50 text-red-600 border border-red-200'
-            }`}
+              }`}
           >
             {error.includes('success') ? (
               <CheckCircle2 className="w-5 h-5 mr-2" />
@@ -1104,7 +1103,7 @@ export default function Profile() {
                     </label>
                   )}
                 </div>
-                
+
                 <div className="mt-4 text-center sm:text-left">
                   <h1 className="text-2xl font-bold text-gray-900">{user?.displayName || 'Abm32'}</h1>
                   <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium">
@@ -1115,8 +1114,8 @@ export default function Profile() {
                         className="bg-transparent text-white focus:outline-none"
                       >
                         <option value="Student" className="bg-indigo-700 text-white">Student</option>
-                        <option value="Researcher" className="bg-indigo-700 text-white">Researcher</option>
-                        <option value="Mentor" className="bg-indigo-700 text-white">Mentor</option>
+                        {/* <option value="Researcher" className="bg-indigo-700 text-white">Researcher</option>
+                        <option value="Mentor" className="bg-indigo-700 text-white">Mentor</option> */}
                         <option value="Administrator" className="bg-indigo-700 text-white">Administrator</option>
                       </select>
                     ) : (
@@ -1125,11 +1124,11 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex-grow flex flex-col items-center sm:items-start sm:mt-0 mt-4">
                 {/* Contact info */}
                 <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-600 mt-2">
-                                    {isEditing ? (
+                  {isEditing ? (
                     <>
                       <div className="flex items-center">
                         <MapPin className="w-4 h-4 mr-2 text-gray-400" />
@@ -1187,7 +1186,7 @@ export default function Profile() {
                     </>
                   )}
                 </div>
-                
+
                 {!isEditing && (
                   <div className="mt-6 sm:mt-auto flex flex-wrap gap-2 justify-center sm:justify-start">
                     <button
@@ -1225,28 +1224,28 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0, transition: { delay: 0.1 } }}
             className="grid grid-cols-2 sm:grid-cols-4 gap-4"
           >
-            <ProfileStat 
-              icon={<BookOpen className="h-5 w-5" />} 
-              label="Publications" 
-              value={stats.publications} 
+            <ProfileStat
+              icon={<BookOpen className="h-5 w-5" />}
+              label="Publications"
+              value={stats.publications}
               isLoading={stats.loading}
             />
-            <ProfileStat 
-              icon={<Users className="h-5 w-5" />} 
-              label="Communities" 
-              value={stats.communities} 
+            <ProfileStat
+              icon={<Users className="h-5 w-5" />}
+              label="Communities"
+              value={stats.communities}
               isLoading={stats.loading}
             />
-            <ProfileStat 
-              icon={<Award className="h-5 w-5" />} 
-              label="Badges" 
-              value={stats.badges} 
+            <ProfileStat
+              icon={<Award className="h-5 w-5" />}
+              label="Badges"
+              value={stats.badges}
               isLoading={stats.loading}
             />
-            <ProfileStat 
-              icon={<ClipboardList className="h-5 w-5" />} 
-              label="Projects" 
-              value={stats.projects} 
+            <ProfileStat
+              icon={<ClipboardList className="h-5 w-5" />}
+              label="Projects"
+              value={stats.projects}
               isLoading={stats.loading}
             />
           </motion.div>
@@ -1408,25 +1407,25 @@ export default function Profile() {
                 )}
               </div>
             </motion.div>
-            
+
             {/* Research Activity - Only show in view mode */}
             {!isEditing && <ResearchActivity />}
           </div>
-          
+
           <div className="space-y-8">
             {/* Joined Communities */}
             <JoinedCommunitiesSection />
-            
+
             {/* Research Achievements */}
             <AchievementsSection />
-            
+
             {/* User Info Card - Only show in view mode */}
             {!isEditing && (
               <AccountInfoCard profile={profile} />
             )}
           </div>
         </div>
-        
+
         {/* Edit Mode Save/Cancel Actions */}
         {isEditing && (
           <motion.div

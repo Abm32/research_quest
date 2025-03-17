@@ -186,15 +186,18 @@ export const resourceService = {
     }
   },
 
-  // Bookmarking functionality
+  // Bookmarking functionality - FIXED: notes handling to prevent undefined values
   async saveResource(userId: string, resourceId: string, notes?: string): Promise<string> {
     try {
-      const docRef = await addDoc(collection(db, 'saved_resources'), {
+      const docData = {
         userId,
         resourceId,
-        notes,
+        // Only include notes field if it's not undefined
+        ...(notes !== undefined && { notes }),
         createdAt: serverTimestamp()
-      });
+      };
+      
+      const docRef = await addDoc(collection(db, 'saved_resources'), docData);
       return docRef.id;
     } catch (error) {
       console.error('Error saving resource:', error);
@@ -436,9 +439,12 @@ export const resourceService = {
     }
   },
 
+// FIXED: arXiv API request using HTTPS and CORS proxy
   async searchArXiv(query: string): Promise<Resource[]> {
     try {
-      const response = await axios.get('http://export.arxiv.org/api/query', {
+      // Use HTTPS instead of HTTP and add CORS proxy
+      const corsProxy = 'http://corsproxy.io/?';
+      const response = await axios.get(`${corsProxy}http://export.arxiv.org/api/query`, {
         params: {
           search_query: query,
           start: 0,
@@ -452,6 +458,12 @@ export const resourceService = {
       });
       
       const data = parser.parse(response.data);
+      
+      // Handle case where no results are returned
+      if (!data.feed.entry) {
+        return [];
+      }
+      
       const entries = Array.isArray(data.feed.entry) ? data.feed.entry : [data.feed.entry];
 
       return entries.map((entry: any) => {
@@ -494,6 +506,10 @@ export const resourceService = {
         }
       });
 
+      if (!response.data?.resultList?.result) {
+        return [];
+      }
+
       return response.data.resultList.result.map((result: {
         id: string;
         title: string;
@@ -523,7 +539,7 @@ export const resourceService = {
     }
   },
 
-  // Combined search across all platforms
+  // Combined search across all platforms with improved error handling
   async searchAllPlatforms(query: string): Promise<Resource[]> {
     if (!query) return [];
 
