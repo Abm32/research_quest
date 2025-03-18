@@ -14,6 +14,14 @@ import {
 } from 'firebase/firestore';
 import type { ResearchProject, ResearchTask, Topic } from '../types';
 
+interface Team {
+  id: string;
+  name: string;
+  members: string[];
+  topic: string;
+  description: string;
+}
+
 export const researchService = {
   // Get all research projects for a user
   async getUserProjects(userId: string): Promise<ResearchProject[]> {
@@ -227,5 +235,14 @@ export const researchService = {
       progress: 0,
       updatedAt: serverTimestamp()
     });
+  },
+
+  async updateTeam(teamId: string, team: Partial<Team>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'teams', teamId), team as any);
+    } catch (error) {
+      console.error('Error updating team:', error);
+      throw error;
+    }
   }
 };

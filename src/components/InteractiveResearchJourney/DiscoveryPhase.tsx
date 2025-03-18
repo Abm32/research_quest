@@ -19,7 +19,13 @@ import {
   ThumbsUp,
   ThumbsDown,
   HelpCircle,
-  ArrowLeft
+  ArrowLeft,
+  Globe,
+  Link,
+  Save,
+  Share2,
+  ExternalLink,
+  CheckCircle
 } from 'lucide-react';
 import { useAIAssistant } from '../../App';
 import { researchService } from '../../services/researchService';
@@ -34,6 +40,42 @@ interface TopicSelection {
   interests: string[];
   goals: string[];
   reason: string;
+}
+
+interface Community {
+  id: string;
+  name: string;
+  platform: 'reddit' | 'discord';
+  members: number;
+  description: string;
+  url: string;
+}
+
+interface Resource {
+  id: string;
+  title: string;
+  type: 'paper' | 'dataset' | 'tool';
+  description: string;
+  url: string;
+  source: string;
+  citations?: number;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  members: string[];
+  topic: string;
+  description: string;
+}
+
+interface PhaseTask {
+  id: string;
+  title: string;
+  description: string;
+  points: number;
+  completed: boolean;
+  type: 'required' | 'common';
 }
 
 interface DiscoveryPhaseProps {
@@ -55,6 +97,71 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
   const [showGuidedQuestions, setShowGuidedQuestions] = useState(false);
   const { setIsOpen } = useAIAssistant();
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [showCommunities, setShowCommunities] = useState(false);
+  const [showResources, setShowResources] = useState(false);
+  const [showTeams, setShowTeams] = useState(false);
+  const [savedResources, setSavedResources] = useState<Resource[]>([]);
+  const [phaseTasks, setPhaseTasks] = useState<PhaseTask[]>([
+    {
+      id: 'select-topic',
+      title: 'Select Research Topic',
+      description: 'Choose a topic from suggestions or enter a custom topic',
+      points: 20,
+      completed: false,
+      type: 'required'
+    },
+    {
+      id: 'bookmark-papers',
+      title: 'Bookmark Resources',
+      description: 'Save at least 3 research papers or resources',
+      points: 15,
+      completed: false,
+      type: 'required'
+    },
+    {
+      id: 'join-community',
+      title: 'Join Research Community',
+      description: 'Connect with a Reddit, Discord, or in-app community',
+      points: 10,
+      completed: false,
+      type: 'required'
+    },
+    {
+      id: 'connect-collaborator',
+      title: 'Connect with Collaborators',
+      description: 'Find a research partner or confirm solo research',
+      points: 15,
+      completed: false,
+      type: 'required'
+    },
+    {
+      id: 'read-guide',
+      title: 'Read Research Guide',
+      description: 'Complete the "How to Choose a Research Topic" guide',
+      points: 10,
+      completed: false,
+      type: 'common'
+    },
+    {
+      id: 'ethics-quiz',
+      title: 'Research Ethics Quiz',
+      description: 'Take a short quiz on research ethics',
+      points: 15,
+      completed: false,
+      type: 'common'
+    },
+    {
+      id: 'community-post',
+      title: 'Community Engagement',
+      description: 'Share your research interests in the community forum',
+      points: 10,
+      completed: false,
+      type: 'common'
+    }
+  ]);
 
   const suggestions: Topic[] = [
     {
@@ -418,6 +525,106 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
     }
   };
 
+  const handleJoinCommunity = async (community: Community) => {
+    if (!user) return;
+    
+    try {
+      // Open community in new tab
+      window.open(community.url, '_blank');
+      
+      // Award points for joining community
+      await gamificationService.awardPoints(
+        user.uid,
+        10,
+        `Joined ${community.platform} community: ${community.name}`
+      );
+    } catch (error) {
+      console.error('Error joining community:', error);
+    }
+  };
+
+  const handleSaveResource = async (resource: Resource) => {
+    if (!user) return;
+    
+    try {
+      setSavedResources(prev => [...prev, resource]);
+      
+      // Award points for saving resource
+      await gamificationService.awardPoints(
+        user.uid,
+        5,
+        `Saved resource: ${resource.title}`
+      );
+    } catch (error) {
+      console.error('Error saving resource:', error);
+    }
+  };
+
+  const handleJoinTeam = async (team: Team) => {
+    if (!user) return;
+    
+    try {
+      // Add user to team
+      const updatedTeam = {
+        ...team,
+        members: [...team.members, user.uid]
+      };
+      
+      // Update team in database
+      await researchService.updateTeam(team.id, updatedTeam);
+      
+      // Award points for joining team
+      await gamificationService.awardPoints(
+        user.uid,
+        20,
+        `Joined research team: ${team.name}`
+      );
+    } catch (error) {
+      console.error('Error joining team:', error);
+    }
+  };
+
+  const handleExploreMore = () => {
+    setSelectedTopic(null);
+    setIsExploring(false);
+    setTopicProgress(0);
+    setTopicSelection(null);
+    setShowGuidedQuestions(false);
+    setSearchQuery('');
+    setActiveFilter('all');
+    setShowFilters(false);
+    setShowCommunities(false);
+    setShowResources(false);
+    setShowTeams(false);
+  };
+
+  const handleTaskComplete = async (taskId: string) => {
+    if (!user) return;
+    
+    try {
+      setPhaseTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, completed: true } : task
+      ));
+
+      const task = phaseTasks.find(t => t.id === taskId);
+      if (task) {
+        await gamificationService.awardPoints(
+          user.uid,
+          task.points,
+          `Completed task: ${task.title}`
+        );
+      }
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
+  };
+
+  const isPhaseComplete = () => {
+    return phaseTasks
+      .filter(task => task.type === 'required')
+      .every(task => task.completed);
+  };
+
   if (showTopicExplorer) {
     return (
       <TopicExplorer
@@ -571,448 +778,400 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
 
   if (selectedTopic && isExploring) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Exploring Topic</h2>
           <button
-            onClick={() => {
-              setSelectedTopic(null);
-              setIsExploring(false);
-              setTopicProgress(0);
-              setTopicSelection(null);
-            }}
-            className="text-gray-600 hover:text-gray-900 text-sm flex items-center space-x-2"
+            onClick={handleExploreMore}
+            className="flex items-center text-indigo-600 hover:text-indigo-700"
           >
-            <ArrowRight className="w-4 h-4 rotate-180" />
-            <span>Back to topics</span>
+            <Compass className="h-5 w-5 mr-2" />
+            Explore More Topics
           </button>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Exploration progress</span>
-            <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${topicProgress}%` }}
-                className="h-full bg-indigo-600"
-              />
-            </div>
-          </div>
         </div>
 
+        {/* Topic Overview */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className={`p-4 bg-gradient-to-br ${selectedTopic.color} rounded-xl text-white mb-6`}>
             <h2 className="text-2xl font-bold mb-2">{selectedTopic.title}</h2>
             <p className="opacity-90">{selectedTopic.description}</p>
           </div>
 
-          <div className="space-y-6">
-            <div className="p-4 bg-indigo-50 rounded-lg">
-              <h3 className="text-lg font-semibold text-indigo-900 mb-2">Your Research Focus</h3>
-              <p className="text-indigo-700 mb-4">{topicSelection?.reason}</p>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-indigo-900 mb-2">Key Interests</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {topicSelection?.interests.map(interest => (
-                      <span
-                        key={interest}
-                        className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-sm"
-                      >
-                        {interest}
+          {/* Communities Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Research Communities</h3>
+              <button
+                onClick={() => setShowCommunities(!showCommunities)}
+                className="text-indigo-600 hover:text-indigo-700"
+              >
+                {showCommunities ? 'Hide Communities' : 'Show Communities'}
+              </button>
+            </div>
+            
+            {showCommunities && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {communities.map(community => (
+                  <div key={community.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-900">{community.name}</h4>
+                      <span className="text-sm text-gray-500">{community.members} members</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">{community.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">
+                        <Globe className="w-4 h-4 inline mr-1" />
+                        {community.platform}
                       </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-indigo-900 mb-2">Research Goals</h4>
-                  <div className="space-y-2">
-                    {topicSelection?.goals.map(goal => (
-                      <div
-                        key={goal}
-                        className="px-3 py-2 bg-indigo-100 text-indigo-600 rounded-lg text-sm"
+                      <button
+                        onClick={() => handleJoinCommunity(community)}
+                        className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
                       >
-                        {goal}
-                      </div>
-                    ))}
+                        Join Community
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-2 text-gray-600 mb-2">
-                  <BookOpen className="w-5 h-5" />
-                  <span>Research Papers</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{selectedTopic.papers?.toLocaleString()}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-2 text-gray-600 mb-2">
-                  <ArrowUpRight className="w-5 h-5" />
-                  <span>Citations</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{selectedTopic.citations?.toLocaleString()}</p>
-              </div>
-            </div>
-
-            {relatedTopics.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Related Topics</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {relatedTopics.map(topic => (
-                    <button
-                      key={topic.id}
-                      onClick={() => handleTopicSelect(topic)}
-                      className="p-4 border border-gray-200 rounded-lg hover:border-indigo-500 transition-colors text-left"
-                    >
-                      <h4 className="font-medium text-gray-900">{topic.title}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{topic.description}</p>
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
 
-        {topicProgress === 100 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-between items-center bg-green-50 p-4 rounded-xl"
-          >
-            <div className="flex items-center space-x-2 text-green-600">
-              <Check className="w-5 h-5" />
-              <span>Topic exploration complete!</span>
+          {/* Resources Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Research Resources</h3>
+              <button
+                onClick={() => setShowResources(!showResources)}
+                className="text-indigo-600 hover:text-indigo-700"
+              >
+                {showResources ? 'Hide Resources' : 'Show Resources'}
+              </button>
             </div>
-            <button
-              onClick={handleProjectCreation}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Create Project & Continue
-            </button>
-          </motion.div>
-        )}
-      </motion.div>
+            
+            {showResources && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {resources.map(resource => (
+                  <div key={resource.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-900">{resource.title}</h4>
+                      <span className="text-sm text-gray-500">{resource.type}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">{resource.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                        >
+                          <ExternalLink className="w-4 h-4 inline mr-1" />
+                          View Resource
+                        </a>
+                        <button
+                          onClick={() => handleSaveResource(resource)}
+                          className="text-gray-600 hover:text-gray-700"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {resource.citations && (
+                        <span className="text-sm text-gray-500">
+                          {resource.citations} citations
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Teams Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Research Teams</h3>
+              <button
+                onClick={() => setShowTeams(!showTeams)}
+                className="text-indigo-600 hover:text-indigo-700"
+              >
+                {showTeams ? 'Hide Teams' : 'Show Teams'}
+              </button>
+            </div>
+            
+            {showTeams && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teams.map(team => (
+                  <div key={team.id} className="p-4 border border-gray-200 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">{team.name}</h4>
+                    <p className="text-sm text-gray-600 mb-4">{team.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">
+                        <Users className="w-4 h-4 inline mr-1" />
+                        {team.members.length} members
+                      </span>
+                      <button
+                        onClick={() => handleJoinTeam(team)}
+                        className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                      >
+                        Join Team
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Progress and Next Steps */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Exploration progress</span>
+                <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${topicProgress}%` }}
+                    className="h-full bg-indigo-600"
+                  />
+                </div>
+              </div>
+              {topicProgress === 100 && (
+                <button
+                  onClick={handleProjectCreation}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Move to Design Phase
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {!isExploring ? (
-        <>
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">Research Topic Discovery</h2>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setIsOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors"
-              >
-                <Bot className="w-5 h-5" />
-                <span>Get AI Help</span>
-              </button>
-            </div>
+    <div className="space-y-8">
+      {/* Phase Progress */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Discovery Phase</h2>
+            <p className="text-gray-600 mt-1">Find your research topic and collaborators</p>
           </div>
-
           <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search research topics or keywords..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+            <div className="text-right">
+              <div className="text-sm text-gray-600">Required Tasks</div>
+              <div className="text-lg font-semibold text-indigo-600">
+                {phaseTasks.filter(t => t.type === 'required' && t.completed).length} / 
+                {phaseTasks.filter(t => t.type === 'required').length}
+              </div>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <Hash className="w-5 h-5 text-gray-500" />
-              <span>Filters</span>
-              <ChevronDown className={`w-4 h-4 text-gray-500 transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="text-right">
+              <div className="text-sm text-gray-600">Common Tasks</div>
+              <div className="text-lg font-semibold text-green-600">
+                {phaseTasks.filter(t => t.type === 'common' && t.completed).length} / 
+                {phaseTasks.filter(t => t.type === 'common').length}
+              </div>
+            </div>
           </div>
+        </div>
 
-          {showFilters && (
-            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg">
-              {filters.map(filter => (
-                <button
-                  key={filter.id}
-                  onClick={() => setActiveFilter(filter.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    activeFilter === filter.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
+        {/* Tasks Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {phaseTasks.map(task => (
+            <div
+              key={task.id}
+              className={`p-4 rounded-lg border ${
+                task.completed
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-white border-gray-200'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">{task.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-indigo-600">
+                    +{task.points} points
+                  </span>
+                  {task.completed ? (
+                    <Check className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <button
+                      onClick={() => handleTaskComplete(task.id)}
+                      className="text-indigo-600 hover:text-indigo-700"
+                    >
+                      Complete
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          ))}
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredSuggestions.map((topic) => (
-              <motion.div
-                key={topic.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{topic.title}</h3>
-                    <p className="text-sm text-gray-600">{topic.category}</p>
-                  </div>
-                  <span className="text-green-600 text-sm font-medium">
-                    <TrendingUp className="w-4 h-4 inline mr-1" />
-                    {topic.relevance}% match
+      {/* Topic Explorer */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Topic Explorer</h2>
+            <p className="text-gray-600 mt-1">Discover and explore research topics</p>
+          </div>
+          <button
+            onClick={() => setShowTopicExplorer(!showTopicExplorer)}
+            className="flex items-center text-indigo-600 hover:text-indigo-700"
+          >
+            {showTopicExplorer ? 'Hide Explorer' : 'Show Explorer'}
+            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
+              showTopicExplorer ? 'rotate-180' : ''
+            }`} />
+          </button>
+        </div>
+
+        {showTopicExplorer ? (
+          <TopicExplorer
+            onBack={() => setShowTopicExplorer(false)}
+            onTopicSelect={handleTopicSelect}
+          />
+        ) : (
+          <div className="text-center py-8">
+            <Compass className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">
+              Use the Topic Explorer to find and explore research topics
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Communities Section */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Research Communities</h2>
+            <p className="text-gray-600 mt-1">Connect with researchers in your field</p>
+          </div>
+          <button
+            onClick={() => setShowCommunities(!showCommunities)}
+            className="flex items-center text-indigo-600 hover:text-indigo-700"
+          >
+            {showCommunities ? 'Hide Communities' : 'Show Communities'}
+            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
+              showCommunities ? 'rotate-180' : ''
+            }`} />
+          </button>
+        </div>
+
+        {showCommunities && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {communities.map(community => (
+              <div key={community.id} className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{community.name}</h4>
+                  <span className="text-sm text-gray-500">{community.members} members</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">{community.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">
+                    <Globe className="w-4 h-4 inline mr-1" />
+                    {community.platform}
                   </span>
-                </div>
-                <p className="text-gray-600 mb-4">{topic.description}</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {topic.keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                  <div className="flex items-center space-x-4">
-                    <span className="flex items-center">
-                      <BookOpen className="w-4 h-4 mr-1" />
-                      {topic.papers} papers
-                    </span>
-                    <span className="flex items-center">
-                      <MessageCircle className="w-4 h-4 mr-1" />
-                      {topic.discussions.length} discussions
-                    </span>
-                  </div>
-                  <span className="flex items-center">
-                    <Users className="w-4 h-4 mr-1" />
-                    {topic.researchers.length} researchers
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => handleTopicInterest(topic, 'like')}
-                      className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    >
-                      <ThumbsUp className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleTopicInterest(topic, 'view')}
-                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <HelpCircle className="w-5 h-5" />
-                    </button>
-                  </div>
                   <button
-                    onClick={() => handleTopicSelect(topic)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    onClick={() => handleJoinCommunity(community)}
+                    className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
                   >
-                    <span>Explore Topic</span>
-                    <ArrowRight className="w-4 h-4" />
+                    Join Community
                   </button>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
-        </>
-      ) : (
-        <div className="space-y-6">
-          {selectedTopic && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-white p-8 rounded-xl shadow-sm"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedTopic.title}</h2>
-                  <p className="text-gray-600 mt-2">{selectedTopic.category}</p>
+        )}
+      </div>
+
+      {/* Resources Section */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Research Resources</h2>
+            <p className="text-gray-600 mt-1">Find and save research materials</p>
+          </div>
+          <button
+            onClick={() => setShowResources(!showResources)}
+            className="flex items-center text-indigo-600 hover:text-indigo-700"
+          >
+            {showResources ? 'Hide Resources' : 'Show Resources'}
+            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
+              showResources ? 'rotate-180' : ''
+            }`} />
+          </button>
+        </div>
+
+        {showResources && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {resources.map(resource => (
+              <div key={resource.id} className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{resource.title}</h4>
+                  <span className="text-sm text-gray-500">{resource.type}</span>
                 </div>
-                <button
-                  onClick={() => setIsExploring(false)}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  <ArrowLeft className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Topic Overview</h3>
-                  <p className="text-gray-600 mb-4">{selectedTopic.description}</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {selectedTopic.keywords.map((keyword) => (
-                      <span
-                        key={keyword}
-                        className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-sm"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Relevance Score</span>
-                      <span className="font-medium text-green-600">{selectedTopic.relevance}% match</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Research Papers</span>
-                      <span className="font-medium text-gray-900">{selectedTopic.papers}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Citations</span>
-                      <span className="font-medium text-gray-900">{selectedTopic.citations}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Research Community</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Active Researchers</h4>
-                      <div className="space-y-2">
-                        {selectedTopic.researchers.map((researcher) => (
-                          <div key={researcher} className="flex items-center space-x-2">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">{researcher}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Current Discussions</h4>
-                      <div className="space-y-2">
-                        {selectedTopic.discussions.map((discussion) => (
-                          <div key={discussion} className="flex items-center space-x-2">
-                            <MessageCircle className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">{discussion}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {showGuidedQuestions && (
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Guided Questions</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        What interests you about this topic?
-                      </label>
-                      <textarea
-                        value={topicSelection?.interests.join(', ')}
-                        onChange={(e) => setTopicSelection(prev => ({
-                          ...prev!,
-                          interests: e.target.value.split(',').map(i => i.trim())
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        rows={3}
-                        placeholder="Enter your interests, separated by commas..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        What are your research goals?
-                      </label>
-                      <textarea
-                        value={topicSelection?.goals.join(', ')}
-                        onChange={(e) => setTopicSelection(prev => ({
-                          ...prev!,
-                          goals: e.target.value.split(',').map(g => g.trim())
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        rows={3}
-                        placeholder="Enter your research goals, separated by commas..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Why did you choose this topic?
-                      </label>
-                      <textarea
-                        value={topicSelection?.reason}
-                        onChange={(e) => setTopicSelection(prev => ({
-                          ...prev!,
-                          reason: e.target.value
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        rows={3}
-                        placeholder="Explain your motivation for choosing this topic..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-8 flex justify-end space-x-4">
-                <button
-                  onClick={() => setIsExploring(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleTopicConfirm}
-                  disabled={!topicSelection?.reason || topicSelection.interests.length === 0 || topicSelection.goals.length === 0}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Confirm Topic Selection
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {relatedTopics.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Related Topics</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {relatedTopics.map((topic) => (
-                  <motion.div
-                    key={topic.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all"
-                  >
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{topic.title}</h4>
-                    <p className="text-gray-600 mb-4">{topic.description}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {topic.keywords.map((keyword) => (
-                        <span
-                          key={keyword}
-                          className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => handleTopicSelect(topic)}
-                      className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                <p className="text-sm text-gray-600 mb-4">{resource.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <a
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
                     >
-                      Explore Topic
+                      <ExternalLink className="w-4 h-4 inline mr-1" />
+                      View Resource
+                    </a>
+                    <button
+                      onClick={() => handleSaveResource(resource)}
+                      className="text-gray-600 hover:text-gray-700"
+                    >
+                      <Save className="w-4 h-4" />
                     </button>
-                  </motion.div>
-                ))}
+                  </div>
+                  {resource.citations && (
+                    <span className="text-sm text-gray-500">
+                      {resource.citations} citations
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Phase Completion */}
+      {isPhaseComplete() && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-green-900">
+                  Discovery Phase Complete!
+                </h3>
+                <p className="text-green-700">
+                  You've completed all required tasks. Ready to move to the Design Phase?
+                </p>
               </div>
             </div>
-          )}
+            <button
+              onClick={handleProjectCreation}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Move to Design Phase
+            </button>
+          </div>
         </div>
       )}
     </div>
