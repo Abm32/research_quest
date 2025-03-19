@@ -34,6 +34,10 @@ import { gamificationService } from '../../services/gamificationService';
 import { useAuth } from '../../components/auth/AuthContext';
 import { saveUserInteraction } from '../../services/topicService';
 import type { Topic } from '../../types';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 interface TopicSelection {
   topic: Topic;
@@ -84,7 +88,7 @@ interface DiscoveryPhaseProps {
 }
 
 export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhaseProps) {
-  const { user } = useAuth();
+  const { user } = useSelector((state: RootState) => state.auth);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -321,7 +325,12 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
     if (topicProgress === 100) {
       researchService.updateProjectProgress(projectId, 'discovery', 100)
         .then(() => {
-          onPhaseComplete();
+          // Update project phase to design
+          researchService.updateProjectPhase(projectId, 'design')
+            .then(() => {
+              onPhaseComplete();
+            })
+            .catch(console.error);
         })
         .catch(console.error);
     }
@@ -363,44 +372,64 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
       });
     }
 
-    // Show guided questions for better topic understanding
-    setShowGuidedQuestions(true);
-
-    // Generate related topics
-    const related = suggestions.filter(t => 
-      t.id !== topic.id && 
-      (t.category === topic.category || 
-       t.keywords.some(k => topic.keywords.includes(k)))
-    );
-    setRelatedTopics(related);
-
     // Update project progress
     await researchService.updateProjectProgress(projectId, 'discovery', 50);
   };
 
   const handleTopicConfirm = async () => {
-    if (!topicSelection || !user) return;
+    if (!user?.uid || !topicSelection || !selectedTopic) {
+      console.error('User not authenticated or missing topic selection');
+      return;
+    }
 
     try {
-      // Save topic selection with detailed information
-      await researchService.updateProjectTopic(projectId, {
-        ...topicSelection.topic,
-        selectionReason: topicSelection.reason,
-        researchInterests: topicSelection.interests,
-        researchGoals: topicSelection.goals
+      // Save topic selection
+      await updateDoc(doc(db, 'research_projects', projectId), {
+        topic: {
+          ...selectedTopic,
+          selectedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          selectionDetails: {
+            motivation: topicSelection.reason,
+            interests: topicSelection.interests,
+            goals: topicSelection.goals
+          }
+        },
+        progress: 100
       });
 
-      // Update progress
+      // Award points
+      try {
+        await gamificationService.awardPoints(user.uid, 50, 'Topic Selection Completed');
+      } catch (error) {
+        console.error('Error awarding points:', error);
+      }
+
+      // Mark topic selection task as complete
+      setPhaseTasks(prev => prev.map(task => 
+        task.id === 'select-topic' ? { ...task, completed: true } : task
+      ));
+
+      // Award achievement for completing discovery phase
+      try {
+        await gamificationService.awardAchievement(user.uid, {
+          title: 'Discovery Master',
+          description: 'Successfully completed the discovery phase',
+          type: 'badge',
+          points: 300,
+          category: 'Research Progress',
+          icon: 'Award',
+          color: 'green',
+          phase: 'discovery'
+        });
+      } catch (error) {
+        console.error('Error awarding achievement:', error);
+      }
+
+      // Set progress to 100 to trigger phase completion
       setTopicProgress(100);
-      await researchService.updateProjectProgress(projectId, 'discovery', 100);
-
-      // Award points for completing topic selection
-      await gamificationService.awardPoints(user.uid, 200, 'Topic Selection Completed');
-
-      // Move to next phase
-      await onPhaseComplete();
     } catch (error) {
-      console.error('Error confirming topic:', error);
+      console.error('Error saving topic selection:', error);
     }
   };
 
@@ -538,6 +567,11 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         10,
         `Joined ${community.platform} community: ${community.name}`
       );
+
+      // Mark join community task as complete
+      setPhaseTasks(prev => prev.map(task => 
+        task.id === 'join-community' ? { ...task, completed: true } : task
+      ));
     } catch (error) {
       console.error('Error joining community:', error);
     }
@@ -555,6 +589,15 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         5,
         `Saved resource: ${resource.title}`
       );
+
+      // Check if user has saved at least 3 resources
+      const updatedSavedResources = [...savedResources, resource];
+      if (updatedSavedResources.length >= 3) {
+        // Mark bookmark papers task as complete
+        setPhaseTasks(prev => prev.map(task => 
+          task.id === 'bookmark-papers' ? { ...task, completed: true } : task
+        ));
+      }
     } catch (error) {
       console.error('Error saving resource:', error);
     }
@@ -579,6 +622,11 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         20,
         `Joined research team: ${team.name}`
       );
+
+      // Mark connect collaborator task as complete
+      setPhaseTasks(prev => prev.map(task => 
+        task.id === 'connect-collaborator' ? { ...task, completed: true } : task
+      ));
     } catch (error) {
       console.error('Error joining team:', error);
     }
@@ -780,7 +828,7 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Exploring Topic</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Topic Selection</h2>
           <button
             onClick={handleExploreMore}
             className="flex items-center text-indigo-600 hover:text-indigo-700"
@@ -797,153 +845,100 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
             <p className="opacity-90">{selectedTopic.description}</p>
           </div>
 
-          {/* Communities Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Research Communities</h3>
-              <button
-                onClick={() => setShowCommunities(!showCommunities)}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                {showCommunities ? 'Hide Communities' : 'Show Communities'}
-              </button>
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Why did you choose this topic?
+              </h3>
+              <textarea
+                value={topicSelection?.reason || ''}
+                onChange={(e) => setTopicSelection(prev => ({
+                  ...prev!,
+                  reason: e.target.value
+                }))}
+                className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                rows={4}
+                placeholder="Share your motivation for choosing this topic..."
+              />
             </div>
-            
-            {showCommunities && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {communities.map(community => (
-                  <div key={community.id} className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{community.name}</h4>
-                      <span className="text-sm text-gray-500">{community.members} members</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">{community.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        <Globe className="w-4 h-4 inline mr-1" />
-                        {community.platform}
-                      </span>
-                      <button
-                        onClick={() => handleJoinCommunity(community)}
-                        className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                      >
-                        Join Community
-                      </button>
-                    </div>
-                  </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                What interests you about this topic?
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedTopic.keywords.map(keyword => (
+                  <button
+                    key={keyword}
+                    onClick={() => setTopicSelection(prev => ({
+                      ...prev!,
+                      interests: prev!.interests.includes(keyword)
+                        ? prev!.interests.filter(k => k !== keyword)
+                        : [...prev!.interests, keyword]
+                    }))}
+                    className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                      topicSelection?.interests.includes(keyword)
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {keyword}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Resources Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Research Resources</h3>
-              <button
-                onClick={() => setShowResources(!showResources)}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                {showResources ? 'Hide Resources' : 'Show Resources'}
-              </button>
             </div>
-            
-            {showResources && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {resources.map(resource => (
-                  <div key={resource.id} className="p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{resource.title}</h4>
-                      <span className="text-sm text-gray-500">{resource.type}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">{resource.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                        >
-                          <ExternalLink className="w-4 h-4 inline mr-1" />
-                          View Resource
-                        </a>
-                        <button
-                          onClick={() => handleSaveResource(resource)}
-                          className="text-gray-600 hover:text-gray-700"
-                        >
-                          <Save className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {resource.citations && (
-                        <span className="text-sm text-gray-500">
-                          {resource.citations} citations
-                        </span>
-                      )}
-                    </div>
-                  </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                What are your research goals?
+              </h3>
+              <div className="space-y-2">
+                {[
+                  'Understanding the fundamentals',
+                  'Exploring practical applications',
+                  'Contributing to existing research',
+                  'Solving specific problems',
+                  'Developing new methodologies'
+                ].map(goal => (
+                  <button
+                    key={goal}
+                    onClick={() => setTopicSelection(prev => ({
+                      ...prev!,
+                      goals: prev!.goals.includes(goal)
+                        ? prev!.goals.filter(g => g !== goal)
+                        : [...prev!.goals, goal]
+                    }))}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                      topicSelection?.goals.includes(goal)
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {goal}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Teams Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Research Teams</h3>
-              <button
-                onClick={() => setShowTeams(!showTeams)}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                {showTeams ? 'Hide Teams' : 'Show Teams'}
-              </button>
             </div>
-            
-            {showTeams && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {teams.map(team => (
-                  <div key={team.id} className="p-4 border border-gray-200 rounded-lg">
-                    <h4 className="font-medium text-gray-900 mb-2">{team.name}</h4>
-                    <p className="text-sm text-gray-600 mb-4">{team.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        <Users className="w-4 h-4 inline mr-1" />
-                        {team.members.length} members
-                      </span>
-                      <button
-                        onClick={() => handleJoinTeam(team)}
-                        className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                      >
-                        Join Team
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Progress and Next Steps */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Exploration progress</span>
-                <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${topicProgress}%` }}
-                    className="h-full bg-indigo-600"
-                  />
-                </div>
-              </div>
-              {topicProgress === 100 && (
-                <button
-                  onClick={handleProjectCreation}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  Move to Design Phase
-                </button>
-              )}
+            <div className="flex justify-end space-x-4 pt-4">
+              <button
+                onClick={() => {
+                  setSelectedTopic(null);
+                  setIsExploring(false);
+                  setTopicProgress(0);
+                  setTopicSelection(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTopicConfirm}
+                disabled={!topicSelection?.reason || !topicSelection.interests.length || !topicSelection.goals.length}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm Topic Selection
+              </button>
             </div>
           </div>
         </div>
@@ -952,13 +947,13 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
   }
 
   return (
-    <div className="space-y-8">
-      {/* Phase Progress */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+    <div className="flex gap-6">
+      {/* Left Side - Tasks */}
+      <div className="w-1/3 bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Discovery Phase</h2>
-            <p className="text-gray-600 mt-1">Find your research topic and collaborators</p>
+            <h2 className="text-2xl font-bold text-gray-900">Discovery Tasks</h2>
+            <p className="text-gray-600 mt-1">Complete tasks to progress</p>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
@@ -968,18 +963,10 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
                 {phaseTasks.filter(t => t.type === 'required').length}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-600">Common Tasks</div>
-              <div className="text-lg font-semibold text-green-600">
-                {phaseTasks.filter(t => t.type === 'common' && t.completed).length} / 
-                {phaseTasks.filter(t => t.type === 'common').length}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Tasks Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
           {phaseTasks.map(task => (
             <div
               key={task.id}
@@ -999,7 +986,10 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
                     +{task.points} points
                   </span>
                   {task.completed ? (
-                    <Check className="w-5 h-5 text-green-500" />
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <span className="text-sm text-green-600">Completed</span>
+                    </div>
                   ) : (
                     <button
                       onClick={() => handleTaskComplete(task.id)}
@@ -1015,165 +1005,241 @@ export function DiscoveryPhase({ projectId, onPhaseComplete }: DiscoveryPhasePro
         </div>
       </div>
 
-      {/* Topic Explorer */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* Center - Topic Explorer */}
+      <div className="w-2/3 bg-white rounded-xl shadow-sm p-6">
+        {!selectedTopic ? (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Topic Explorer</h2>
-            <p className="text-gray-600 mt-1">Discover and explore research topics</p>
-          </div>
-          <button
-            onClick={() => setShowTopicExplorer(!showTopicExplorer)}
-            className="flex items-center text-indigo-600 hover:text-indigo-700"
-          >
-            {showTopicExplorer ? 'Hide Explorer' : 'Show Explorer'}
-            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
-              showTopicExplorer ? 'rotate-180' : ''
-            }`} />
-          </button>
-        </div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Topic Explorer</h2>
+                <p className="text-gray-600 mt-1">Discover and explore research topics</p>
+              </div>
+            </div>
 
-        {showTopicExplorer ? (
-          <TopicExplorer
-            onBack={() => setShowTopicExplorer(false)}
-            onTopicSelect={handleTopicSelect}
-          />
-        ) : (
-          <div className="text-center py-8">
-            <Compass className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">
-              Use the Topic Explorer to find and explore research topics
-            </p>
-          </div>
-        )}
-      </div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <input
+                  type="text"
+                  placeholder="Search topics..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Filters
+                </button>
+              </div>
 
-      {/* Communities Section */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Research Communities</h2>
-            <p className="text-gray-600 mt-1">Connect with researchers in your field</p>
-          </div>
-          <button
-            onClick={() => setShowCommunities(!showCommunities)}
-            className="flex items-center text-indigo-600 hover:text-indigo-700"
-          >
-            {showCommunities ? 'Hide Communities' : 'Show Communities'}
-            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
-              showCommunities ? 'rotate-180' : ''
-            }`} />
-          </button>
-        </div>
-
-        {showCommunities && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {communities.map(community => (
-              <div key={community.id} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900">{community.name}</h4>
-                  <span className="text-sm text-gray-500">{community.members} members</span>
+              {showFilters && (
+                <div className="flex flex-wrap gap-2">
+                  {filters.map(filter => (
+                    <button
+                      key={filter.id}
+                      onClick={() => setActiveFilter(filter.id)}
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        activeFilter === filter.id
+                          ? 'bg-indigo-100 text-indigo-600'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-sm text-gray-600 mb-4">{community.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    <Globe className="w-4 h-4 inline mr-1" />
-                    {community.platform}
-                  </span>
-                  <button
-                    onClick={() => handleJoinCommunity(community)}
-                    className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+              )}
+
+              <div className="grid grid-cols-1 gap-4">
+                {filteredSuggestions.map(topic => (
+                  <div
+                    key={topic.id}
+                    className="p-4 border border-gray-200 rounded-lg hover:border-indigo-500 transition-colors cursor-pointer"
+                    onClick={() => handleTopicSelect(topic)}
                   >
-                    Join Community
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-medium text-gray-900">{topic.title}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{topic.description}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {topic.keywords.map(keyword => (
+                            <span
+                              key={keyword}
+                              className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-500">
+                          {topic.papers} papers
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {topic.citations} citations
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Topic Details</h2>
+                <p className="text-gray-600 mt-1">Learn more about your selected topic</p>
+              </div>
+              <button
+                onClick={handleExploreMore}
+                className="text-indigo-600 hover:text-indigo-700"
+              >
+                Explore More Topics
+              </button>
+            </div>
+
+            {!showGuidedQuestions ? (
+              <div className="space-y-6">
+                <div className="p-4 bg-indigo-50 rounded-lg">
+                  <h3 className="text-lg font-semibold text-indigo-900 mb-2">
+                    {selectedTopic.title}
+                  </h3>
+                  <p className="text-indigo-700">{selectedTopic.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Key Researchers</h4>
+                    <ul className="space-y-2">
+                      {selectedTopic.researchers.map(researcher => (
+                        <li key={researcher} className="text-sm text-gray-600">
+                          {researcher}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Active Discussions</h4>
+                    <ul className="space-y-2">
+                      {selectedTopic.discussions.map(discussion => (
+                        <li key={discussion} className="text-sm text-gray-600">
+                          {discussion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowGuidedQuestions(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    Continue with Topic
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Resources Section */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Research Resources</h2>
-            <p className="text-gray-600 mt-1">Find and save research materials</p>
-          </div>
-          <button
-            onClick={() => setShowResources(!showResources)}
-            className="flex items-center text-indigo-600 hover:text-indigo-700"
-          >
-            {showResources ? 'Hide Resources' : 'Show Resources'}
-            <ChevronDown className={`w-5 h-5 ml-2 transform transition-transform ${
-              showResources ? 'rotate-180' : ''
-            }`} />
-          </button>
-        </div>
-
-        {showResources && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {resources.map(resource => (
-              <div key={resource.id} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900">{resource.title}</h4>
-                  <span className="text-sm text-gray-500">{resource.type}</span>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-4 bg-indigo-50 rounded-lg">
+                  <h3 className="text-lg font-semibold text-indigo-900 mb-2">
+                    Why did you choose this topic?
+                  </h3>
+                  <textarea
+                    value={topicSelection?.reason || ''}
+                    onChange={(e) => setTopicSelection(prev => ({
+                      ...prev!,
+                      reason: e.target.value
+                    }))}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={3}
+                    placeholder="Share your motivation for choosing this topic..."
+                  />
                 </div>
-                <p className="text-sm text-gray-600 mb-4">{resource.description}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <a
-                      href={resource.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                    >
-                      <ExternalLink className="w-4 h-4 inline mr-1" />
-                      View Resource
-                    </a>
-                    <button
-                      onClick={() => handleSaveResource(resource)}
-                      className="text-gray-600 hover:text-gray-700"
-                    >
-                      <Save className="w-4 h-4" />
-                    </button>
+
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Research Interests</h4>
+                  <div className="space-y-2">
+                    {[
+                      'Academic research',
+                      'Industry applications',
+                      'Social impact',
+                      'Personal interest',
+                      'Career development'
+                    ].map(interest => (
+                      <button
+                        key={interest}
+                        onClick={() => setTopicSelection(prev => ({
+                          ...prev!,
+                          interests: prev!.interests.includes(interest)
+                            ? prev!.interests.filter(i => i !== interest)
+                            : [...prev!.interests, interest]
+                        }))}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                          topicSelection?.interests.includes(interest)
+                            ? 'bg-indigo-100 text-indigo-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
                   </div>
-                  {resource.citations && (
-                    <span className="text-sm text-gray-500">
-                      {resource.citations} citations
-                    </span>
-                  )}
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Research Goals</h4>
+                  <div className="space-y-2">
+                    {[
+                      'Understanding the fundamentals',
+                      'Exploring practical applications',
+                      'Contributing to existing research',
+                      'Solving specific problems',
+                      'Developing new methodologies'
+                    ].map(goal => (
+                      <button
+                        key={goal}
+                        onClick={() => setTopicSelection(prev => ({
+                          ...prev!,
+                          goals: prev!.goals.includes(goal)
+                            ? prev!.goals.filter(g => g !== goal)
+                            : [...prev!.goals, goal]
+                        }))}
+                        className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                          topicSelection?.goals.includes(goal)
+                            ? 'bg-indigo-100 text-indigo-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {goal}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={() => setShowGuidedQuestions(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleTopicConfirm}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    Confirm Topic
+                  </button>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
-
-      {/* Phase Completion */}
-      {isPhaseComplete() && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <div>
-                <h3 className="text-lg font-semibold text-green-900">
-                  Discovery Phase Complete!
-                </h3>
-                <p className="text-green-700">
-                  You've completed all required tasks. Ready to move to the Design Phase?
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleProjectCreation}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Move to Design Phase
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

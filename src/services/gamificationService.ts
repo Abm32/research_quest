@@ -6,12 +6,12 @@ import {
   updateDoc, 
   increment,
   arrayUnion,
-  serverTimestamp,
   getDocs,
   query,
   where,
   orderBy,
-  limit
+  limit,
+  setDoc
 } from 'firebase/firestore';
 import type { UserAchievement, UserPoints, Reward } from '../types';
 
@@ -30,18 +30,29 @@ export const gamificationService = {
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
-      throw new Error('User not found');
+      // Create user document with initial data
+      await setDoc(userRef, {
+        totalPoints: points,
+        achievements: [],
+        pointsHistory: [{
+          points,
+          reason,
+          timestamp: new Date().toISOString()
+        }],
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      // Update existing user document
+      await updateDoc(userRef, {
+        totalPoints: increment(points),
+        pointsHistory: arrayUnion({
+          points,
+          reason,
+          timestamp: new Date().toISOString()
+        }),
+        updatedAt: new Date().toISOString()
+      });
     }
-
-    // Update user's total points
-    await updateDoc(userRef, {
-      totalPoints: increment(points),
-      pointsHistory: arrayUnion({
-        points,
-        reason,
-        timestamp: serverTimestamp()
-      })
-    });
 
     // Update leaderboard
     await this.updateLeaderboard(userId);
@@ -58,14 +69,27 @@ export const gamificationService = {
   async awardAchievement(userId: string, achievement: Partial<UserAchievement>): Promise<void> {
     const achievementData = {
       ...achievement,
-      earnedAt: serverTimestamp(),
+      earnedAt: new Date().toISOString(),
       id: `${userId}-${achievement.title}-${Date.now()}`
     };
 
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      achievements: arrayUnion(achievementData)
-    });
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      // Create user document with initial data
+      await setDoc(userRef, {
+        totalPoints: achievement.points || 0,
+        achievements: [achievementData],
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      // Update existing user document
+      await updateDoc(userRef, {
+        achievements: arrayUnion(achievementData),
+        updatedAt: new Date().toISOString()
+      });
+    }
 
     // Award points for achievement
     if (achievement.points) {
@@ -115,7 +139,7 @@ export const gamificationService = {
         amount: -reward.pointsCost,
         type: 'spent',
         description: `Redeemed reward: ${reward.title}`,
-        timestamp: serverTimestamp()
+        timestamp: new Date().toISOString()
       })
     });
 
@@ -157,7 +181,7 @@ export const gamificationService = {
       leaderboardRank: {
         totalPoints,
         achievements: achievements.length,
-        lastUpdated: serverTimestamp()
+        lastUpdated: new Date().toISOString()
       }
     });
   },
